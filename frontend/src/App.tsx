@@ -44,6 +44,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <footer><span>PhishGuard AI</span><span className="footer-dot">•</span><span>Threat intelligence, simplified.</span></footer>
     </div>
   );
 }

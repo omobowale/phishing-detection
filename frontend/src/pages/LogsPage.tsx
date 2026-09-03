@@ -4,6 +4,7 @@ import { listLogs } from '../api/logs';
 import type { DetectionLogEntry, Prediction } from '../api/types';
 import { PredictionBadge } from '../components/PredictionBadge';
 import { useAuth } from '../auth/AuthContext';
+import { HistoryIcon } from '../components/Icons';
 
 const PAGE_SIZE = 20;
 
@@ -54,10 +55,17 @@ export function LogsPage() {
 
   return (
     <div className="page">
-      <h1>Detection logs</h1>
-      <p className="page-subtitle">
-        {user?.role === 'admin' ? 'Showing all logs.' : 'Showing your own submissions.'}
-      </p>
+      <div className="page-header">
+        <span className="page-header-icon">
+          <HistoryIcon />
+        </span>
+        <div>
+          <h1>Detection logs</h1>
+          <p className="page-subtitle">
+            {user?.role === 'admin' ? 'Showing all logs.' : 'Showing your own submissions.'}
+          </p>
+        </div>
+      </div>
 
       <div className="filters card">
         <label>

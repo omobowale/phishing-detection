@@ -4,8 +4,9 @@ import { ApiError } from '../api/client';
 import { getMetrics } from '../api/metrics';
 import type { Metrics } from '../api/types';
 import { StatCard } from '../components/StatCard';
+import { ChartIcon } from '../components/Icons';
 
-const COLORS = { phishing: '#e0555f', legitimate: '#3fa66a' };
+const COLORS = { phishing: '#d92d20', legitimate: '#078e6e' };
 
 function formatPercent(value: number | null): string {
   return value === null ? 'N/A' : `${(value * 100).toFixed(1)}%`;
@@ -34,8 +35,18 @@ export function MetricsPage() {
 
   return (
     <div className="page">
-      <h1>Metrics</h1>
-      <p className="page-subtitle">Operational stats reflect all logged requests. Accuracy/precision/recall/F1 only count logs with a known ground-truth label.</p>
+      <div className="page-header">
+        <span className="page-header-icon">
+          <ChartIcon />
+        </span>
+        <div>
+          <h1>Metrics</h1>
+          <p className="page-subtitle">
+            Operational stats reflect all logged requests. Accuracy/precision/recall/F1 only count logs with a known
+            ground-truth label.
+          </p>
+        </div>
+      </div>
 
       <div className="stat-grid">
         <StatCard label="Total requests" value={String(metrics.total_requests)} />

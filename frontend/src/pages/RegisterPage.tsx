@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { AlertIcon, ArrowIcon, ShieldIcon } from '../components/Icons';
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -28,12 +29,10 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="page page-narrow">
-      <h1>Create an account</h1>
-      <p className="page-subtitle">
-        New accounts are always regular users. Admin accounts are created separately (see backend/scripts/create_admin.py).
-      </p>
-      <form className="card form" onSubmit={handleSubmit}>
+    <div className="page auth-page">
+      <div className="auth-intro"><span className="auth-shield"><ShieldIcon /></span><div className="eyebrow"><span></span> Safer browsing starts here</div><h1>Create your account</h1><p>Save your scan history and keep suspicious content under control.</p></div>
+      <form className="card form auth-card" onSubmit={handleSubmit}>
+        <div className="auth-card-heading"><ShieldIcon /><div><h2>Join PhishGuard</h2><p>Free, secure, and ready in seconds</p></div></div>
         <label>
           Name
           <input type="text" required value={name} onChange={(e) => setName(e.target.value)} />
@@ -52,14 +51,12 @@ export function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Creating account...' : 'Sign up'}
+        <button type="submit" className="primary-button" disabled={submitting}>
+          {submitting ? 'Creating account...' : <>Create account <ArrowIcon /></>}
         </button>
+        {error && <p className="page-status error"><AlertIcon />{error}</p>}
+        <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
       </form>
-      {error && <p className="page-status error">{error}</p>}
-      <p>
-        Already have an account? <Link to="/login">Log in</Link>
-      </p>
     </div>
   );
 }

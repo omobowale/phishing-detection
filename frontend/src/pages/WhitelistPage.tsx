@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { ApiError } from '../api/client';
 import { addWhitelistEntry, deleteWhitelistEntry, listWhitelist } from '../api/whitelist';
 import type { WhitelistEntry } from '../api/types';
+import { ListIcon } from '../components/Icons';
 
 export function WhitelistPage() {
   const [entries, setEntries] = useState<WhitelistEntry[]>([]);
@@ -49,8 +50,15 @@ export function WhitelistPage() {
 
   return (
     <div className="page">
-      <h1>Whitelist</h1>
-      <p className="page-subtitle">Domains here bypass the classifier entirely in /detect.</p>
+      <div className="page-header">
+        <span className="page-header-icon">
+          <ListIcon />
+        </span>
+        <div>
+          <h1>Whitelist</h1>
+          <p className="page-subtitle">Domains here bypass the classifier entirely in /detect.</p>
+        </div>
+      </div>
 
       <form className="card form-inline" onSubmit={handleAdd}>
         <input
