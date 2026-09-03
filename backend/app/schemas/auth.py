@@ -4,10 +4,13 @@ from app.models.user import UserRole
 
 
 class UserRegister(BaseModel):
+    """Public self-registration. No `role` field on purpose - the API always
+    creates end_user accounts here; promoting to admin is a separate,
+    non-self-service action (see backend/scripts/create_admin.py)."""
+
     name: str
     email: EmailStr
     password: str
-    role: UserRole = UserRole.end_user
 
 
 class UserOut(BaseModel):
