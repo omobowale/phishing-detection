@@ -1,14 +1,18 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ChartIcon, HistoryIcon, ListIcon, LogOutIcon, MoonIcon, ScanIcon, ShieldIcon, SunIcon } from './Icons';
 import { useTheme } from '../theme/useTheme';
+import { ConfirmModal } from './ConfirmModal';
 
 export function NavBar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   function handleLogout() {
+    setConfirmLogout(false);
     logout();
     navigate('/login');
   }
@@ -41,7 +45,13 @@ export function NavBar() {
           <>
             <span className="user-avatar">{user.name.charAt(0).toUpperCase()}</span>
             <span className="navbar-user"><strong>{user.name}</strong><small>{user.role === 'admin' ? 'Administrator' : 'Member'}</small></span>
-            <button type="button" className="icon-button" onClick={handleLogout} aria-label="Log out" title="Log out">
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setConfirmLogout(true)}
+              aria-label="Log out"
+              title="Log out"
+            >
               <LogOutIcon />
             </button>
           </>
@@ -52,6 +62,17 @@ export function NavBar() {
           </>
         )}
       </div>
+
+      <ConfirmModal
+        open={confirmLogout}
+        onClose={() => setConfirmLogout(false)}
+        onConfirm={handleLogout}
+        icon={<LogOutIcon />}
+        title="Log out of PhishGuard?"
+        description="You'll need to sign in again to view your scan history and account details."
+        confirmLabel="Log out"
+        cancelLabel="Stay signed in"
+      />
     </nav>
   );
 }

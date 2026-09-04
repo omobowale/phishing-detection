@@ -3,7 +3,8 @@ import type { FormEvent } from 'react';
 import { ApiError } from '../api/client';
 import { addWhitelistEntry, deleteWhitelistEntry, listWhitelist } from '../api/whitelist';
 import type { WhitelistEntry } from '../api/types';
-import { ListIcon } from '../components/Icons';
+import { ListIcon, TrashIcon } from '../components/Icons';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export function WhitelistPage() {
   const [entries, setEntries] = useState<WhitelistEntry[]>([]);
@@ -11,6 +12,9 @@ export function WhitelistPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<WhitelistEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function refresh() {
     setLoading(true);
@@ -38,13 +42,23 @@ export function WhitelistPage() {
     }
   }
 
-  async function handleDelete(id: number) {
-    setError(null);
+  function openDeleteConfirm(entry: WhitelistEntry) {
+    setDeleteError(null);
+    setPendingDelete(entry);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      await deleteWhitelistEntry(id);
-      setEntries((prev) => prev.filter((e) => e.id !== id));
+      await deleteWhitelistEntry(pendingDelete.id);
+      setEntries((prev) => prev.filter((e) => e.id !== pendingDelete.id));
+      setPendingDelete(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete domain.');
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete domain.');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -93,7 +107,7 @@ export function WhitelistPage() {
                   <td>{entry.added_by}</td>
                   <td>{new Date(entry.date_added).toLocaleString()}</td>
                   <td>
-                    <button type="button" className="danger" onClick={() => handleDelete(entry.id)}>
+                    <button type="button" className="danger" onClick={() => openDeleteConfirm(entry)}>
                       Remove
                     </button>
                   </td>
@@ -110,6 +124,24 @@ export function WhitelistPage() {
           </table>
         </div>
       )}
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
+        icon={<TrashIcon />}
+        variant="danger"
+        title="Remove this domain?"
+        description={
+          pendingDelete
+            ? `"${pendingDelete.domain}" will no longer bypass the classifier once removed - future scans against it will run through the normal pipeline.`
+            : undefined
+        }
+        confirmLabel="Remove domain"
+        loading={deleting}
+      >
+        {deleteError && <p className="page-status error">{deleteError}</p>}
+      </ConfirmModal>
     </div>
   );
 }
