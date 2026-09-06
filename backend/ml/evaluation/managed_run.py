@@ -1,0 +1,98 @@
+"""Start an isolated loopback server, evaluate it, and stop only that server.
+
+    python -m ml.evaluation.managed_run --backend trained
+
+No existing database, server, credentials, or results are reused or overwritten.
+"""
+import argparse
+from datetime import datetime, timezone
+import os
+from pathlib import Path
+import secrets
+import socket
+import subprocess
+import sys
+import time
+
+import httpx
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--backend", choices=["trained", "rule_based"], default="trained")
+    parser.add_argument("--limit", type=int, help="Optional smoke-test size; omit for full evaluation")
+    args = parser.parse_args()
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit must be positive")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + args.backend + "_" + secrets.token_hex(3)
+    run_dir = ROOT / "ml/evaluation/runs" / run_id
+    run_dir.mkdir(parents=True)
+    db_path = run_dir / "evaluation.db"
+    env = os.environ.copy()
+    env.update(DATABASE_URL="sqlite:///" + db_path.as_posix(), CLASSIFIER_BACKEND=args.backend,
+               SECRET_KEY=secrets.token_urlsafe(48), EVALUATION_PASSWORD=secrets.token_urlsafe(24),
+               PYTHONUNBUFFERED="1", ENVIRONMENT="development")
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    subprocess.run([sys.executable, "-c", "import os; from scripts.create_admin import create_admin; "
+                    "create_admin('evaluation@example.com', 'Evaluation', os.environ['EVALUATION_PASSWORD'])"],
+                   cwd=ROOT, env=env, check=True, creationflags=flags)
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    base_url = f"http://127.0.0.1:{port}"
+    with (run_dir / "server.log").open("w", encoding="utf-8") as server_log:
+        server = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1",
+                                   "--port", str(port), "--no-access-log"], cwd=ROOT, env=env,
+                                  stdout=server_log, stderr=subprocess.STDOUT, creationflags=flags)
+        try:
+            deadline = time.monotonic() + 60
+            with httpx.Client(trust_env=False, timeout=1) as client:
+                while True:
+                    if server.poll() is not None:
+                        raise RuntimeError(f"Evaluation server exited; inspect {run_dir / 'server.log'}")
+                    try:
+                        if client.get(base_url + "/health").status_code == 200:
+                            break
+                    except httpx.HTTPError:
+                        pass
+                    if time.monotonic() > deadline:
+                        raise RuntimeError("Evaluation server did not become ready within 60 seconds")
+                    time.sleep(.25)
+            command = [sys.executable, "-m", "ml.evaluation.run_evaluation", "--base-url", base_url,
+                       "--admin-email", "evaluation@example.com", "--classifier-backend", args.backend,
+                       "--db-path", str(db_path), "--output", str(run_dir / "results.json")]
+            if args.limit:
+                command.extend(["--limit", str(args.limit)])
+            with (run_dir / "evaluation.log").open("w", encoding="utf-8") as evaluation_log:
+                evaluator = subprocess.Popen(command, cwd=ROOT, env=env, creationflags=flags,
+                                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                             text=True, encoding="utf-8", errors="replace")
+                try:
+                    for line in evaluator.stdout:
+                        evaluation_log.write(line)
+                        evaluation_log.flush()
+                        print(line, end="", flush=True)
+                    if evaluator.wait() != 0:
+                        raise RuntimeError(f"Evaluation failed; inspect {run_dir / 'evaluation.log'}")
+                finally:
+                    if evaluator.poll() is None:
+                        evaluator.terminate()
+                        try:
+                            evaluator.wait(timeout=10)
+                        except subprocess.TimeoutExpired:
+                            evaluator.kill()
+                            evaluator.wait()
+        finally:
+            server.terminate()
+            try:
+                server.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                server.kill()
+                server.wait()
+    print(f"Evaluation server stopped. Evidence: {run_dir}", flush=True)
+
+
+if __name__ == "__main__":
+    main()
