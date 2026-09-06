@@ -67,7 +67,8 @@ def test_runtime_identity_requires_admin(client):
     admin = register_and_login(client, email="admin-runtime@example.com", role="admin")
     response = client.get("/api/v1/metrics/runtime", headers=admin)
     assert response.status_code == 200
-    assert response.json()["classifier_backend"] == "rule_based"
+    assert response.json()["url_classifier_backend"] == "rule_based"
+    assert response.json()["email_classifier_backend"] == "rule_based"
     assert response.json()["database_identity"] is None  # Test fixture uses an in-memory DB.
 
 

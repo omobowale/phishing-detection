@@ -31,7 +31,10 @@ def main():
     run_dir.mkdir(parents=True)
     db_path = run_dir / "evaluation.db"
     env = os.environ.copy()
-    env.update(DATABASE_URL="sqlite:///" + db_path.as_posix(), CLASSIFIER_BACKEND=args.backend,
+    # URL-only evaluation harness (run_evaluation.py only ever submits {"url": ...}),
+    # so only URL_CLASSIFIER_BACKEND is set here -- EMAIL_CLASSIFIER_BACKEND is left
+    # at its own default since it's never exercised by this evaluation.
+    env.update(DATABASE_URL="sqlite:///" + db_path.as_posix(), URL_CLASSIFIER_BACKEND=args.backend,
                SECRET_KEY=secrets.token_urlsafe(48), EVALUATION_PASSWORD=secrets.token_urlsafe(24),
                PYTHONUNBUFFERED="1", ENVIRONMENT="development")
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0

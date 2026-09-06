@@ -5,9 +5,11 @@ section 8's "TF-IDF for classical models, BERT embeddings for transformer model"
 citable directly in the thesis, same convention as `ml/README.md` (the URL classifier's
 equivalent document) — every number below came from an actual run.
 
-**Current state: classical TF-IDF classifier trained and meets spec-wide targets. BERT fine-tuning
-not yet done — CPU-only compute on this machine (no CUDA GPU), so the time budget for that needs a
-decision before committing to it. Not yet wired into `classifiers.py`/live serving.**
+**Current state: classical TF-IDF classifier trained, meets spec-wide targets, and is wired into
+live serving (`EMAIL_CLASSIFIER_BACKEND=trained`, see section 4 — independent of the URL model's
+own `URL_CLASSIFIER_BACKEND` setting, since the two have very different maturity; see `ml/README.md`
+§16). BERT fine-tuning not yet done — CPU-only compute on this machine (no CUDA GPU), so the time
+budget for that needs a decision before committing to it.**
 
 ---
 
@@ -170,15 +172,31 @@ outcome: the model learned "an email address is mentioned" generalizes, not "whi
   no CUDA GPU (`torch.cuda.is_available()` is `False`; integrated Intel UHD 620 only), so this
   would be a CPU-only fine-tune — needs a realistic time budget agreed before committing to it, not
   assumed.
-- **Not integrated into `app/pipeline/classifiers.py`** — `RuleBasedClassifier`'s hand-weighted
-  email heuristic is still what's live. Wiring in the trained classifier (a new `EmailClassifier`
-  implementing `BaseClassifier`, analogous to `TrainedURLClassifier`) is straightforward given the
-  URL pipeline's existing pattern, but deliberately deferred until the BERT-vs-classical-only
-  scope question above is settled, so it isn't redone twice.
 - **No combined URL+email evaluation** — needs a labeled dataset with both a URL and email body
   per example, which doesn't exist yet; out of scope for this pass.
 - **No independent second email test set** — same caveat the URL pipeline's methodology carries:
   this is one dataset's held-out split, not an independently-collected final test set.
+
+**Now integrated into `app/pipeline/classifiers.py`**: `TrainedClassifier` (formerly
+`TrainedURLClassifier`, generalized) loads `email_classifier.joblib` when `EMAIL_CLASSIFIER_
+BACKEND=trained`, and/or `url_classifier.joblib` when `URL_CLASSIFIER_BACKEND=trained` --
+these are two independent settings (`ml/README.md` §16), not one shared flag, specifically so the
+email model (ready) can go live without also re-enabling the URL model's known bare-domain false-
+positive problem (not ready, `ml/README.md` §5/§6). Either side falls back to its rule-based
+heuristic when its own setting is `rule_based` or its model file is missing. `extract_email_
+features()` now also returns `tokens_text` -- the exact same `strip_email_headers()` ->
+`preprocess_email_text()` output `build_email_features.py` used to build its `tokens` column --
+so the live TF-IDF vectorizer sees identical input to training, not a re-derived approximation.
+
+Verified end-to-end against the real running FastAPI server (not just direct model calls), with
+the actual deployed settings (`EMAIL_CLASSIFIER_BACKEND=trained`, `URL_CLASSIFIER_BACKEND=
+rule_based`): a real phishing email and a real legitimate email both classify correctly via the
+trained email model, and `google.com` correctly classifies as legitimate via the URL side's
+rule-based heuristic -- confirming the backend split actually prevents the bare-domain regression
+in the live default configuration, not just in a hypothetical one. Separately, forcing
+`URL_CLASSIFIER_BACKEND=trained` for a one-off check reproduces the already-documented bare-domain
+false positive on `example.com`/`google.com` (`ml/README.md` §5) -- the existing, accepted URL
+model limitation, not a new integration bug, and exactly why it isn't the live default.
 
 ---
 

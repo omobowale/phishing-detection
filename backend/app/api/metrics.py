@@ -25,9 +25,12 @@ def runtime_info(db: Session = Depends(get_db), _: User = Depends(require_admin)
     if url.get_backend_name() == "sqlite" and url.database not in (None, "", ":memory:"):
         database_identity = sha256(str(Path(url.database).resolve()).encode()).hexdigest()
     return {
-        "classifier_backend": settings.classifier_backend,
+        "url_classifier_backend": settings.url_classifier_backend,
+        "email_classifier_backend": settings.email_classifier_backend,
         "model_name": getattr(classifier, "model_name", type(classifier).__name__),
         "model_sha256": getattr(classifier, "model_sha256", None),
+        "email_model_name": getattr(classifier, "email_model_name", None),
+        "email_model_sha256": getattr(classifier, "email_model_sha256", None),
         "database_identity": database_identity,
     }
 

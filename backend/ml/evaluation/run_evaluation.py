@@ -146,7 +146,7 @@ def main():
             return response.json()
         runtime = get("metrics/runtime")  # Load model before timing warm inference.
         expected_db = sha256(str(args.db_path.resolve()).encode()).hexdigest()
-        if runtime["classifier_backend"] != args.classifier_backend or runtime["database_identity"] != expected_db:
+        if runtime["url_classifier_backend"] != args.classifier_backend or runtime["database_identity"] != expected_db:
             raise RuntimeError("Server backend/database does not match this evaluation")
         if get("metrics")["total_requests"] or get("whitelist"):
             raise RuntimeError("Evaluation requires a fresh log database and empty allowlist")

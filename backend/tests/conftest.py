@@ -5,9 +5,21 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 - ensures all models are registered on Base
+from app.core.config import settings
 from app.db.base import Base, get_db
 from app.main import app
 from app.models.user import User, UserRole
+
+
+@pytest.fixture(autouse=True)
+def _pin_classifier_backend(monkeypatch):
+    """The test suite must not depend on whatever URL_CLASSIFIER_BACKEND /
+    EMAIL_CLASSIFIER_BACKEND a developer's local .env happens to set -- pin the
+    safe, artifact-free defaults here so results are the same on every machine
+    and in CI. Individual tests (e.g. test_classifiers.py) still monkeypatch
+    these to "trained" within their own scope when they need to."""
+    monkeypatch.setattr(settings, "url_classifier_backend", "rule_based")
+    monkeypatch.setattr(settings, "email_classifier_backend", "rule_based")
 
 
 @pytest.fixture()

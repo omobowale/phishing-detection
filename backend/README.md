@@ -5,27 +5,33 @@ FastAPI backend implementing the pipeline described in `../phishing-detection-de
 ## Status
 
 End-to-end skeleton: `/detect`, `/whitelist`, `/logs`, `/metrics`, and JWT auth are all
-wired up and tested. Phases 1 (data) and 2 (model development) have been run, plus four
-rounds of external security/validation/evaluation/dataset-rigor review and fix passes
-(2026-09-06) — see `ml/README.md` section 14.5 for the one consolidated results table to
-cite, and the rest of the document for the full audit trail. A real hyperparameter search
-(not just hand-picked configs) was also run and did not improve on the default config
-(§14.4). Short version: **neither classifier backend currently meets the spec's detection
-targets, but the performance NFRs (latency, throughput) are met.** The live default,
-`rule_based` (`app/pipeline/classifiers.py`), measured **1.69% recall** in a formal
-held-out evaluation (`ml/evaluation/results.json`) — it does not function as a phishing
-detector in any meaningful sense. A trained URL model exists at
-`ml/saved_models/url_classifier.joblib`; evaluated properly (domain-grouped train/test
-split via a Public Suffix List-aware grouping, so no domain is shared between them), it
-measures **F1 0.839, precision 0.841, recall 0.837**, still below the spec's F1≥0.90
-target, and still fails a bare-domain/well-known-site sanity check. This is now an open
-problem requiring either a better dataset or a narrower thesis scope (see `ml/README.md`
-section 8) — not something the codebase alone can resolve. On the brighter side: the
-same fresh evaluation confirms average latency ~13ms (p99 ~39ms) and **41.5 successful
-req/s under concurrent load, clearing the spec's 20 req/s target** — an earlier
-benchmark bug had this failing at 5.51 req/s, since corrected (§12.5/§12.7). Swap
-classifiers by adding a new `BaseClassifier` subclass and pointing `CLASSIFIER_BACKEND`
-at it; no API code needs to change — but read `ml/README.md` first.
+wired up and tested. Phases 1 (data) and 2 (model development) have been run for both the
+URL classifier (`ml/README.md`) and the email/NLP classifier (`ml/README_EMAIL.md`), plus
+four rounds of external security/validation/evaluation/dataset-rigor review and fix passes
+on the URL side (2026-09-06) — see `ml/README.md` section 14.5 for the one consolidated
+results table to cite, and the rest of the document for the full audit trail.
+
+**The URL and email classifiers are on very different footing, so `app/pipeline/
+classifiers.py` controls them with two independent settings** (`URL_CLASSIFIER_BACKEND`,
+`EMAIL_CLASSIFIER_BACKEND`), not one shared flag:
+
+- **URL**: the trained model does not meet spec (F1 0.839 vs 0.90 target, `ml/README.md`
+  §14.5) and, more importantly, fails a bare-domain sanity check (as low as 1/12 —
+  ordinary sites like `google.com`/`example.com` get flagged phishing, §5). The live
+  default (`rule_based`) is transparent but nearly non-functional as a detector (1.69%
+  recall, `ml/evaluation/results.json`). Neither is ready to ship as "the" URL classifier;
+  this is an open problem requiring a better/differently-sourced dataset or a narrower
+  thesis scope (§8) — not something the codebase alone can resolve.
+- **Email**: the trained TF-IDF+RandomForest model meets every spec target on the first
+  properly-cleaned attempt (F1 0.980, precision 0.990, recall 0.970, `ml/README_EMAIL.md`
+  §3) with no equivalent known failure mode, and is wired in as the live default.
+
+Performance NFRs are met regardless of classifier choice: latency ~13ms average (p99
+~39ms) and **41.5 successful req/s under concurrent load**, clearing the spec's 20 req/s
+target (an earlier benchmark bug had this failing at 5.51 req/s, since corrected,
+`ml/README.md` §12.5/§12.7). Swap classifiers by adding a new `BaseClassifier` subclass and
+pointing the relevant `*_CLASSIFIER_BACKEND` setting at it; no API code needs to change —
+but read `ml/README.md`/`ml/README_EMAIL.md` first.
 
 ## Deployment configuration
 
@@ -34,7 +40,9 @@ at it; no API code needs to change — but read `ml/README.md` first.
   `python -c "import secrets; print(secrets.token_hex(32))"`.
 - **`ENVIRONMENT`**: `development` (default, just warns about the default secret) or
   `production` (hard-fails startup instead).
-- **`CLASSIFIER_BACKEND`**: `rule_based` or `trained` — see Status above before changing this.
+- **`URL_CLASSIFIER_BACKEND`** / **`EMAIL_CLASSIFIER_BACKEND`**: each `rule_based` or
+  `trained`, independent of each other — see Status above before changing `URL_CLASSIFIER_
+  BACKEND` in particular.
 - **NLTK data**: run `python -m scripts.download_nltk_data` once during setup/deploy.
   The app deliberately never downloads NLTK corpora at request time (it used to, adding
   1.4-2.4s to a request's first email-preprocessing call) — without this step, email

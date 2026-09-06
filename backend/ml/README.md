@@ -13,12 +13,14 @@ this document is URL-only throughout.
 below it is the audit trail of how those numbers were arrived at, across four rounds of external
 review — useful for methodology/limitations chapters, but §14.5 is the source of truth for numbers.
 
-**Current state: `CLASSIFIER_BACKEND` is `rule_based` in production, not `trained`.** A trained
-model exists at `saved_models/url_classifier.joblib` but is not wired in as the default. Four
-rounds of external review plus this project's own follow-up work converge on the same conclusion:
-neither backend is fit to ship as-is, and the dataset needed considerably more cleaning and
-methodology correction than any single pass caught before its numbers should be presented as a
-final benchmark.
+**Current state: `URL_CLASSIFIER_BACKEND` is `rule_based` in production, not `trained`** (this is
+now a setting independent of the email classifier's — see `app/core/config.py` and `README.md`'s
+Status section). A trained model exists at `saved_models/url_classifier.joblib` and is fully wired
+into `app/pipeline/classifiers.py` (`TrainedClassifier`, loaded whenever `URL_CLASSIFIER_BACKEND=
+trained`), but is deliberately not the default. Four rounds of external review plus this project's
+own follow-up work converge on the same conclusion: neither backend is fit to ship as-is, and the
+dataset needed considerably more cleaning and methodology correction than any single pass caught
+before its numbers should be presented as a final benchmark.
 
 - **Phase 5's live-API evaluation of `rule_based`**, re-run under the corrected evaluation script
   (`ml/evaluation/results.json`, §12.7): **1.69% recall**, accuracy 0.509, precision 0.614, F1
@@ -326,7 +328,7 @@ bare domains (`google.com`, `example.com`, `github.com`, `wikipedia.org`, `micro
 phishing-shaped URLs (an IP-address login path, a paypal-subdomain + suspicious-TLD combination,
 an apple-verify domain with an `@`, a facebook typosquat on `.tk`). Final model (run 7): **1/12
 legitimate cases correct, 4/4 phishing-shaped URLs correct.** The script prints an explicit warning
-and a recommendation against switching `CLASSIFIER_BACKEND` to `trained` if this check fails —
+and a recommendation against switching `URL_CLASSIFIER_BACKEND` to `trained` if this check fails —
 future retraining attempts (e.g. after sourcing a different dataset) get this check automatically;
 don't remove it without a good reason.
 
@@ -911,7 +913,31 @@ from input-validation rejections.
 
 The current held-out data has been inspected repeatedly during development. Treat
 these runs as development evaluations, not an untouched final generalization test.
-The research still needs an independent external test set, a controlled cleaning
-comparison if causal claims are intended, and labeled email data plus an email model
-for the original hybrid URL/email thesis scope. Never treat spam labels as phishing
+The research still needs an independent external test set and a controlled cleaning
+comparison if causal claims are intended. Never treat spam labels as phishing
 labels without an explicit, supported mapping.
+
+---
+
+## 16. Email classifier wired in; classifier_backend split into two settings (2026-09-06)
+
+The "labeled email data plus an email model for the original hybrid URL/email thesis scope" gap
+noted above is now closed — see `README_EMAIL.md` for the full dataset audit, training, and
+results (TF-IDF + Random Forest, F1 0.980, meets every spec target, no known bare-domain-style
+failure mode).
+
+Wiring both classifiers into `app/pipeline/classifiers.py` under one `CLASSIFIER_BACKEND` setting
+would have forced an all-or-nothing choice between the two very different backends this document
+argues for keeping separate — so `TrainedURLClassifier` was generalized into `TrainedClassifier`
+(handles either/both) and the single setting was split into `URL_CLASSIFIER_BACKEND` and
+`EMAIL_CLASSIFIER_BACKEND`, resolved independently. **§6's decision to keep the URL side on
+`rule_based` is unchanged and still applies** — nothing in this section revisits that. The local
+`.env` now runs `URL_CLASSIFIER_BACKEND=rule_based` (per §6) with `EMAIL_CLASSIFIER_BACKEND=trained`
+(safe, per `README_EMAIL.md`). `ml/evaluation/managed_run.py`/`run_evaluation.py` are URL-only
+tools and were updated to set/read `URL_CLASSIFIER_BACKEND`/`url_classifier_backend` specifically;
+their `--backend`/`--classifier-backend` CLI flags are unchanged.
+
+Verified against the real running FastAPI server (not just direct model calls): a real phishing
+email and a real legitimate email both classify correctly via the trained email model; `google.com`
+correctly classifies as legitimate via the URL side's rule-based heuristic (confirming the split
+actually prevents the bare-domain regression, not just in theory).

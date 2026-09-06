@@ -292,8 +292,8 @@ def main() -> None:
             "a feature-set information ceiling, not overfitting -- see _sanity_check "
             "docstring. This is exactly what the admin-managed Whitelist is for: seed "
             "it with known trusted domains rather than expecting the URL-structure "
-            "model to recognize them. NOT recommended to switch CLASSIFIER_BACKEND to "
-            "'trained' unless you've reviewed that tradeoff.\n"
+            "model to recognize them. NOT recommended to switch URL_CLASSIFIER_BACKEND "
+            "to 'trained' unless you've reviewed that tradeoff.\n"
         )
 
     if ARTIFACT_SUFFIX:

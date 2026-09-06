@@ -57,6 +57,11 @@ def extract_email_features(email_text: str) -> dict:
         "url_count_in_body": len(urls_in_body),
         "exclamation_count": body.count("!"),
         "all_caps_word_count": sum(1 for w in re.findall(r"\b[A-Z]{3,}\b", body)),
+        # Same strip_email_headers() -> preprocess_email_text() pipeline
+        # ml/training/build_email_features.py uses to build its "tokens" column,
+        # so the trained TF-IDF model (see classifiers.TrainedClassifier) sees
+        # identical input live to what it was trained/evaluated on.
+        "tokens_text": " ".join(tokens),
     }
 
     return {**header_features, **nlp_features, "urls_in_body": urls_in_body}

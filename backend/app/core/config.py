@@ -16,11 +16,17 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
-    # which classifier implementation /pipeline/classifiers.py should hand out.
-    # "rule_based" works with no trained models on disk; "trained" loads whichever
-    # RF/XGBoost model ml/training/train_url_classifier.py serialized under
-    # /ml/saved_models (see pipeline/classifiers.py).
-    classifier_backend: str = "rule_based"
+    # Which classifier implementation /pipeline/classifiers.py should use for each
+    # side of a request, independently -- the URL and email models have very
+    # different maturity (see ml/README.md §5/§6 for why URL defaults to
+    # rule_based despite the trained model's higher aggregate F1: it catastrophically
+    # misclassifies ordinary bare domains like "google.com"; ml/README_EMAIL.md's
+    # trained model has no equivalent known failure mode). "rule_based" needs no
+    # trained model on disk; "trained" loads the corresponding joblib under
+    # /ml/saved_models and falls back to rule-based heuristics if that file is
+    # missing for the *other* side of a mixed request.
+    url_classifier_backend: str = "rule_based"
+    email_classifier_backend: str = "rule_based"
 
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
