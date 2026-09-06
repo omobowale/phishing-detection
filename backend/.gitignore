@@ -3,6 +3,22 @@ venv/
 __pycache__/
 *.pyc
 *.db
+*.db-wal
+*.db-shm
+/ml/evaluation/runs/**/server.log
 .env
-/ml/saved_models/
+# Large/binary/regenerable ML artifacts are ignored, but the small JSON/CSV
+# summaries (metrics, quarantined/cleaned-row audit trails, held-out test
+# URLs) are kept -- they're exactly the citable, human-reviewable evidence
+# ml/README.md's findings depend on, not something to regenerate and lose.
+/ml/saved_models/**/*.joblib
+/ml/data/raw/
+/ml/data/processed/*.parquet
+/ml/data/raw_email/
+/ml/data/processed_email/*.parquet
+# Ad-hoc/timestamped evaluation runs are debug dumps from managed_run.py, fully
+# reproducible on demand -- unlike the curated metrics/audit JSON above, these
+# aren't meant to accumulate in git history.
+/ml/evaluation/runs/
+/ml/evaluation/results.json
 .pytest_cache/
