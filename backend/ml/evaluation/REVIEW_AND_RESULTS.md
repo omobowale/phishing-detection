@@ -85,11 +85,10 @@ The small warm capacity probe measured 73.54 req/s. All 20 examples were phishin
 so this smoke sample cannot establish balanced classification performance or
 full-set serving capacity. It verifies that the newly saved model is served.
 
-New DistilBERT code and smoke artifacts were also observed. The smoke metrics cover
-40 train / 16 validation / 16 test examples, not full training. There is no BERT
-serving backend yet. The latest script now seeds before initializing its classification head, fixing
-that reproducibility issue. Checkpoint dataset/configuration identity still needs
-verification before resuming a long training job.
+The initial DistilBERT review found a missing serving backend and unverified
+checkpoint reuse. Both implementation issues are now addressed; see
+[implementation fixes](IMPLEMENTATION_FIXES.md). Smoke experiments remain distinct
+from full training and do not establish BERT research performance.
 
 All 46 backend tests passed after the integration changes. The final URL smoke
 check also completed with 20/20 successful requests in its capacity probe.
@@ -105,8 +104,8 @@ From `backend`, using the existing environment and saved model:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Omit `--limit` for a full email evaluation after addressing the data and serving
-performance concerns. Preserve the current artifacts as baselines before rebuilding.
+The full classical email API evaluation has now been run; see the implementation
+fixes report for its results and startup changes. Preserve the current artifacts as baselines before rebuilding.
 The next research milestone is a leakage-controlled email experiment and independent
 external URL/email evaluation, followed by full BERT and mixed-input evaluation if
 retaining the original thesis scope.

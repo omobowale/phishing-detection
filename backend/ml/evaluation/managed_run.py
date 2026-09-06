@@ -21,10 +21,13 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", choices=["trained", "rule_based"], default="trained")
+    parser.add_argument("--backend", choices=["trained", "rule_based", "bert"], default="trained")
+    parser.add_argument("--bert-model-path", type=Path, help="Explicit completed BERT export")
     parser.add_argument("--input-type", choices=["url", "email_text"], default="url")
     parser.add_argument("--limit", type=int, help="Optional smoke-test size; omit for full evaluation")
     args = parser.parse_args()
+    if args.backend == "bert" and args.input_type != "email_text":
+        parser.error("BERT supports --input-type email_text only")
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + args.input_type + "_" + args.backend + "_" + secrets.token_hex(3)
@@ -38,6 +41,8 @@ def main():
                EMAIL_CLASSIFIER_BACKEND=args.backend if args.input_type == "email_text" else "rule_based",
                SECRET_KEY=secrets.token_urlsafe(48), EVALUATION_PASSWORD=secrets.token_urlsafe(24),
                PYTHONUNBUFFERED="1", ENVIRONMENT="development")
+    if args.bert_model_path:
+        env["EMAIL_BERT_MODEL_PATH"] = str(args.bert_model_path.resolve())
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     subprocess.run([sys.executable, "-c", "import os; from scripts.create_admin import create_admin; "
                     "create_admin('evaluation@example.com', 'Evaluation', os.environ['EVALUATION_PASSWORD'])"],
@@ -51,7 +56,7 @@ def main():
                                    "--port", str(port), "--no-access-log"], cwd=ROOT, env=env,
                                   stdout=server_log, stderr=subprocess.STDOUT, creationflags=flags)
         try:
-            deadline = time.monotonic() + 60
+            deadline = time.monotonic() + 180
             with httpx.Client(trust_env=False, timeout=1) as client:
                 while True:
                     if server.poll() is not None:
@@ -62,7 +67,7 @@ def main():
                     except httpx.HTTPError:
                         pass
                     if time.monotonic() > deadline:
-                        raise RuntimeError("Evaluation server did not become ready within 60 seconds")
+                        raise RuntimeError("Evaluation server did not become ready within 180 seconds")
                     time.sleep(.25)
             command = [sys.executable, "-m", "ml.evaluation.run_evaluation", "--base-url", base_url,
                        "--admin-email", "evaluation@example.com", "--classifier-backend", args.backend,

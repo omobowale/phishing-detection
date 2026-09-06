@@ -1,0 +1,24 @@
+{
+  "dataset_sha256": "a59d643491f2dd660e5259ec54984ce73973e2be9f723606a2f16872571f9d39",
+  "model_name": "distilbert-base-uncased",
+  "pretrained_revision": "12040accade4e8a0f71eabdb258fecc2e7e948be",
+  "smoke": false,
+  "epochs": 3,
+  "seed": 42,
+  "max_length": 128,
+  "train_batch_size": 8,
+  "eval_batch_size": 16,
+  "learning_rate": 2e-05,
+  "code_sha256": {
+    "train_email_bert.py": "64af321b96da308be1087b9fa8948345950918f966eb7a1d004095b9445b7ad5",
+    "preprocessing.py": "f88bcacc3c2326121c959f6068b52da89ab02c0070a7aa202555daacd8338315",
+    "experiment_identity.py": "9719c2e4cdbe562e01846ba1611742e1dbbf1a941d4f45d96a4aa65ece70819d"
+  },
+  "packages": {
+    "torch": "2.14.0",
+    "transformers": "5.16.1",
+    "accelerate": "1.14.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5"
+  }
+}

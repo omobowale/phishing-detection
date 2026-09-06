@@ -126,7 +126,7 @@ def main():
     parser.add_argument("--base-url", default="http://127.0.0.1:8123")
     parser.add_argument("--admin-email", required=True)
     parser.add_argument("--admin-password", default=os.getenv("EVALUATION_PASSWORD"))
-    parser.add_argument("--classifier-backend", required=True, choices=["trained", "rule_based"])
+    parser.add_argument("--classifier-backend", required=True, choices=["trained", "rule_based", "bert"])
     parser.add_argument("--db-path", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--input-type", choices=["url", "email_text"], default="url")
@@ -165,7 +165,7 @@ def main():
             raise RuntimeError("Server backend/database does not match this evaluation")
         if get("metrics")["total_requests"] or get("whitelist"):
             raise RuntimeError("Evaluation requires a fresh log database and empty allowlist")
-        print(f"Verified runtime: {runtime}; evaluating {len(urls)} URLs", flush=True)
+        print(f"Verified runtime: {runtime}; evaluating {len(urls)} {args.input_type} inputs", flush=True)
         start = time.perf_counter()
         results, rejected = _run_detection_pass(args.base_url, urls, args.input_type)
         elapsed = time.perf_counter() - start
