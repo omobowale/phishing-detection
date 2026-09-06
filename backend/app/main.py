@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -6,12 +7,29 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import auth, detect, logs, metrics, whitelist
-from app.core.config import settings
+from app.core.config import DEFAULT_SECRET_KEY, settings
 from app.db.base import Base, engine
+
+logger = logging.getLogger("phishing_detection.startup")
+
+
+def _check_secret_key() -> None:
+    if settings.secret_key != DEFAULT_SECRET_KEY:
+        return
+    message = (
+        "SECRET_KEY is still the insecure default ('dev-secret-change-me'). "
+        "Every JWT this process issues can be forged by anyone who reads this "
+        "source code. Set a real random SECRET_KEY via the environment/.env "
+        "before deploying."
+    )
+    if settings.environment == "production":
+        raise RuntimeError(message)
+    logger.warning(message)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _check_secret_key()
     # dev convenience; use Alembic migrations instead once this needs to run
     # against a shared/production database.
     Base.metadata.create_all(bind=engine)

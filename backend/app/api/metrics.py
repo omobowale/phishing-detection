@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends
+from hashlib import sha256
+from pathlib import Path
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,25 @@ from app.models.user import User
 from app.schemas.metrics import Metrics
 
 router = APIRouter(tags=["metrics"])
+
+
+@router.get("/metrics/runtime")
+def runtime_info(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Admin-only identity of the loaded model and database, for evaluation."""
+    from app.core.config import settings
+    from app.pipeline.classifiers import get_classifier
+
+    classifier = get_classifier()
+    url = db.get_bind().url
+    database_identity = None
+    if url.get_backend_name() == "sqlite" and url.database not in (None, "", ":memory:"):
+        database_identity = sha256(str(Path(url.database).resolve()).encode()).hexdigest()
+    return {
+        "classifier_backend": settings.classifier_backend,
+        "model_name": getattr(classifier, "model_name", type(classifier).__name__),
+        "model_sha256": getattr(classifier, "model_sha256", None),
+        "database_identity": database_identity,
+    }
 
 
 @router.get("/metrics", response_model=Metrics)

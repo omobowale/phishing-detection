@@ -2,7 +2,7 @@ import re
 from email import message_from_string
 from email.utils import parseaddr
 
-from app.pipeline.preprocessing import preprocess_email_text
+from app.pipeline.preprocessing import preprocess_email_text, strip_email_headers
 
 _URGENCY_KEYWORDS = [
     "urgent", "verify your account", "suspended", "click here", "act now",
@@ -45,14 +45,7 @@ def extract_email_features(email_text: str) -> dict:
     body (see preprocess_email_text / classifiers.py)."""
     header_features = _extract_header_features(email_text)
 
-    body = email_text
-    try:
-        msg = message_from_string(email_text)
-        if msg.get_payload():
-            payload = msg.get_payload()
-            body = payload if isinstance(payload, str) else email_text
-    except Exception:
-        pass
+    body = strip_email_headers(email_text)
 
     lower_body = body.lower()
     tokens = preprocess_email_text(body)
