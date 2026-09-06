@@ -1,0 +1,54 @@
+{
+  "selected_model": "random_forest",
+  "val_metrics": {
+    "random_forest": {
+      "accuracy": 0.8868886888688869,
+      "precision": 0.8854125149461937,
+      "recall": 0.8887777555511103,
+      "f1": 0.8870919436957173,
+      "confusion_matrix": {
+        "true_negative": 4425,
+        "false_positive": 575,
+        "false_negative": 556,
+        "true_positive": 4443
+      }
+    },
+    "xgboost": {
+      "accuracy": 0.8812881288128813,
+      "precision": 0.8821170809943866,
+      "recall": 0.8801760352070415,
+      "f1": 0.8811454891358766,
+      "confusion_matrix": {
+        "true_negative": 4412,
+        "false_positive": 588,
+        "false_negative": 599,
+        "true_positive": 4400
+      }
+    }
+  },
+  "test_metrics": {
+    "accuracy": 0.878987898789879,
+    "precision": 0.8780682498503293,
+    "recall": 0.8801760352070415,
+    "f1": 0.8791208791208791,
+    "confusion_matrix": {
+      "true_negative": 4389,
+      "false_positive": 611,
+      "false_negative": 599,
+      "true_positive": 4400
+    }
+  },
+  "baseline_metrics": {
+    "majority_class": "legitimate",
+    "accuracy": 0.5000500050005,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "meets_spec_targets": false,
+  "bare_domain_sanity_check": {
+    "legitimate_pass": "1/12",
+    "phishing_pass": "3/4",
+    "all_passed": false
+  }
+}

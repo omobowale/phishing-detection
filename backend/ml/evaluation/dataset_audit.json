@@ -1,0 +1,211 @@
+{
+  "raw_rows": 651191,
+  "columns": [
+    "url",
+    "type"
+  ],
+  "missing": {
+    "url": 0,
+    "type": 0
+  },
+  "classes": {
+    "benign": 428103,
+    "defacement": 96457,
+    "phishing": 94111,
+    "malware": 32520
+  },
+  "exact_duplicate_rows": 10066,
+  "duplicate_url_rows": 10072,
+  "conflicting_exact_urls": 6,
+  "conflicting_normalized_urls": 3942,
+  "parse_errors": 17,
+  "empty_hosts": 18,
+  "by_class": {
+    "benign": {
+      "rows": 428103,
+      "unique_hosts": 134066,
+      "scheme_present_pct": 8.26389910839214,
+      "no_path_pct": 0.06633917538536287,
+      "root_or_no_path_pct": 12.19823266830646,
+      "top_hosts": {
+        "en.wikipedia.org": 12668,
+        "youtube.com": 8617,
+        "facebook.com": 7735,
+        "amazon.com": 4618,
+        "imdb.com": 3470,
+        "linkedin.com": 3426,
+        "myspace.com": 3014,
+        "mylife.com": 2822
+      }
+    },
+    "defacement": {
+      "rows": 96457,
+      "unique_hosts": 2122,
+      "scheme_present_pct": 100.0,
+      "no_path_pct": 0.0,
+      "root_or_no_path_pct": 0.0,
+      "top_hosts": {
+        "www.allaroundrental.com": 265,
+        "www.bruynzeelmultipanel.be": 222,
+        "www.ninopizzaria.com.br": 209,
+        "www.tandemimmobilier.fr": 191,
+        "www.zibae.ir": 188,
+        "www.holidayclub-mtb.com": 108,
+        "adventure-nicaragua.net": 102,
+        "www.ikenmijnkunst.nl": 102
+      }
+    },
+    "malware": {
+      "rows": 32520,
+      "unique_hosts": 7364,
+      "scheme_present_pct": 96.27921279212792,
+      "no_path_pct": 3.0473554735547355,
+      "root_or_no_path_pct": 3.1949569495694954,
+      "top_hosts": {
+        "9779.info": 3984,
+        "mitsui-jyuku.mixh.jp": 2879,
+        "apbfiber.com": 1147,
+        "pastebin.com": 987,
+        "toulousa.com": 501,
+        "grasslandhotel.com.vn": 354,
+        "hotlinegsm.com": 349,
+        "3cf.ru": 295
+      }
+    },
+    "phishing": {
+      "rows": 94111,
+      "unique_hosts": 55824,
+      "scheme_present_pct": 26.409240152585777,
+      "no_path_pct": 23.137571590993613,
+      "root_or_no_path_pct": 25.40723188575193,
+      "top_hosts": {
+        "tools.ietf.org": 3190,
+        "www.angelfire.com": 1295,
+        "pastehtml.com": 938,
+        "en.wikipedia.org": 538,
+        "sourceforge.net": 530,
+        "members.tripod.com": 385,
+        "www.freewebs.com": 338,
+        "news.cnet.com": 318
+      }
+    }
+  },
+  "binary_conflicting_urls": 6,
+  "conflicting_examples": [
+    "ebookstore.sony.com/reader/",
+    "en.wikipedia.org/wiki/Desktop_publishing",
+    "en.wikipedia.org/wiki/E-book",
+    "groups.yahoo.com/group/Band-in-a-Box/",
+    "memory.loc.gov/ammem/ccmphtml/colahome.html",
+    "routesinternational.com/air.htm"
+  ],
+  "processed": {
+    "rows": 99991,
+    "classes": {
+      "legitimate": 50000,
+      "phishing": 49991
+    },
+    "splits": {
+      "train": 79992,
+      "test": 10000,
+      "val": 9999
+    },
+    "duplicate_url_rows": 6,
+    "test_csv_rows": 10000,
+    "test_csv_matches_parquet": true
+  },
+  "split_overlap": {
+    "train_val": {
+      "exact_urls": 1,
+      "normalized_urls": 49,
+      "shared_hosts": 2375,
+      "later_split_rows_with_seen_host": 5040,
+      "later_split_rows": 9999
+    },
+    "train_test": {
+      "exact_urls": 1,
+      "normalized_urls": 57,
+      "shared_hosts": 2344,
+      "later_split_rows_with_seen_host": 5026,
+      "later_split_rows": 10000
+    },
+    "val_test": {
+      "exact_urls": 0,
+      "normalized_urls": 8,
+      "shared_hosts": 977,
+      "later_split_rows_with_seen_host": 3407,
+      "later_split_rows": 10000
+    }
+  },
+  "short_bare_train": {
+    "phishing": 1138,
+    "legitimate": 599
+  },
+  "domain_filter_removes": 1785,
+  "removed_by_host": {
+    "en.wikipedia.org": 538,
+    "www.ibm.com": 120,
+    "www.microsoft.com": 103,
+    "msdn.microsoft.com": 103,
+    "support.microsoft.com": 92,
+    "www.adobe.com": 60,
+    "www.nytimes.com": 49,
+    "www.apple.com": 43,
+    "www.oracle.com": 36,
+    "www-03.ibm.com": 34,
+    "www-01.ibm.com": 34,
+    "www.amazon.com": 31
+  },
+  "suspect_benign_examples": [
+    "id0498372885938paypal.com.au.account.verification-re5983202k.com.au.mubashar786.com/.vbv/2c6a8dcc4b3f8f672663e0487ec3f63f/0a9126bd5fd9e95dcac74baf3e9c7c67/webscr.php",
+    "id0498372885938paypal.com.au.account.verification-re5983202k.com.au.mubashar786.com/.vbv/66f09d1192109745cb9860ced26b5736/ec93fabb59a285ed0c854c9db232c08a/webscr.php?cmd=_login-run&dispatch=5885d80a13c0db1f1ff80d546411d7f8a8350c132bc41e0934cfc023d4e8f9e5",
+    "id0498372885938paypal.com.au.account.verification-re5983202k.com.au.mubashar786.com/.vbv/66f09d1192109745cb9860ced26b5736/ec93fabb59a285ed0c854c9db232c08a/webscr.php?cmd=_login-run&amp;dispatch=5885d80a13c0db1f1ff80d546411d7f8a8350c132bc41e0934cfc023d4e8f9e5"
+  ],
+  "binary_normalized_conflicting_urls": 3940,
+  "binary_rows_in_normalized_conflicts": 7909,
+  "binary_scheme_by_class": {
+    "benign": {
+      "explicit_http": 33428,
+      "explicit_https": 1950,
+      "rows": 428103
+    },
+    "phishing": {
+      "explicit_http": 17886,
+      "explicit_https": 6966,
+      "rows": 94111
+    }
+  },
+  "normalized_conflict_examples": [
+    {
+      "url": "http://pastehtml.com/view/b2i243gkw.html",
+      "type": "phishing",
+      "canonical": "http://pastehtml.com/view/b2i243gkw.html"
+    },
+    {
+      "url": "http://www.ksra.ca/form/use/verify/form1.html",
+      "type": "phishing",
+      "canonical": "http://www.ksra.ca/form/use/verify/form1.html"
+    },
+    {
+      "url": "http://www.lappiramis.hu/wordpress/wp-content/themes/twentyeleven/inc/images/index.htm",
+      "type": "phishing",
+      "canonical": "http://www.lappiramis.hu/wordpress/wp-content/themes/twentyeleven/inc/images/index.htm"
+    },
+    {
+      "url": "http://habbomoedasgeraa.blogspot.com/",
+      "type": "phishing",
+      "canonical": "http://habbomoedasgeraa.blogspot.com/"
+    },
+    {
+      "url": "http://pastehtml.com/view/bfzi0ah2a.html",
+      "type": "phishing",
+      "canonical": "http://pastehtml.com/view/bfzi0ah2a.html"
+    },
+    {
+      "url": "http://mikteks.biz/S7XIde/webscr_prim.php?bWlrdGVrcy5iaXo=uhsdsusu5485757kUJHNN546221oPLKj988777AOP784MTM1MDkxODc4OA==",
+      "type": "phishing",
+      "canonical": "http://mikteks.biz/S7XIde/webscr_prim.php?bWlrdGVrcy5iaXo=uhsdsusu5485757kUJHNN546221oPLKj988777AOP784MTM1MDkxODc4OA=="
+    }
+  ],
+  "normalization_note": "Assume http for missing scheme; lowercase scheme/authority; normalize empty path to slash; remove fragment. These are candidate conflicts, not proof of which label is correct."
+}
