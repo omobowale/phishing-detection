@@ -40,7 +40,7 @@ export function DetectPage() {
   return (
     <div className="page detect-page">
       <section className="hero">
-        <div className="eyebrow"><span></span> AI-powered threat analysis</div>
+        <div className="eyebrow"><span></span> Rule-based threat analysis</div>
         <h1>Spot the threat.<br/><span>Before you click.</span></h1>
         <p>Analyze suspicious links and emails in seconds with intelligent, real-time phishing detection.</p>
         <div className="trust-row"><span><CheckIcon /> Private analysis</span><span><CheckIcon /> Instant results</span><span><CheckIcon /> No data shared</span></div>
@@ -99,7 +99,7 @@ export function DetectPage() {
       )}
 
       <section className="feature-strip">
-        <div><span><ShieldIcon /></span><div><strong>Advanced detection</strong><p>Hybrid ML and language analysis</p></div></div>
+        <div><span><ShieldIcon /></span><div><strong>Heuristic detection</strong><p>Weighted rule-based scoring (ML model in development)</p></div></div>
         <div><span><ClockIcon /></span><div><strong>Real-time results</strong><p>Threat checks in milliseconds</p></div></div>
         <div><span><MailIcon /></span><div><strong>URL & email analysis</strong><p>One scanner for every message</p></div></div>
       </section>
