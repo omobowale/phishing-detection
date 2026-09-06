@@ -1,4 +1,5 @@
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -9,6 +10,9 @@ from fastapi.responses import JSONResponse
 from app.api import auth, detect, logs, metrics, whitelist
 from app.core.config import DEFAULT_SECRET_KEY, settings
 from app.db.base import Base, engine
+from app.pipeline.classifiers import get_classifier
+from app.pipeline.feature_extraction_email import extract_email_features
+from app.pipeline.feature_extraction_url import extract_url_features
 
 logger = logging.getLogger("phishing_detection.startup")
 
@@ -33,6 +37,13 @@ async def lifespan(app: FastAPI):
     # dev convenience; use Alembic migrations instead once this needs to run
     # against a shared/production database.
     Base.metadata.create_all(bind=engine)
+    # Complete lazy corpus/model initialization before accepting traffic. This
+    # also makes a missing configured artifact a startup error, not a user 500.
+    started = time.perf_counter()
+    classifier = get_classifier()
+    classifier.predict(extract_url_features("https://example.com/"), None)
+    classifier.predict(None, extract_email_features("The meeting notes are ready."))
+    logger.info("Classification pipeline ready after %.2f seconds", time.perf_counter() - started)
     yield
 
 

@@ -115,8 +115,8 @@ class TrainedClassifier(BaseClassifier):
     """Uses trained models (ml/training/train_url_classifier.py and
     train_email_classifier.py) for whichever side of a request has one loaded.
     Falls back to the same rule-based heuristics RuleBasedClassifier uses for
-    whichever side is configured as "rule_based" (or has no trained model on
-    disk) -- url_classifier_backend and email_classifier_backend are independent
+    whichever side is configured as "rule_based" --
+    url_classifier_backend and email_classifier_backend are independent
     settings, so this instance may end up trained on one side only."""
 
     # A trained model's phishing-probability vote is weighted heavily relative
@@ -159,7 +159,8 @@ class TrainedClassifier(BaseClassifier):
                 # tokens_text: see feature_extraction_email.py -- the same
                 # strip_email_headers() -> preprocess_email_text() pipeline
                 # build_email_features.py used to train this vectorizer/model.
-                vector = self.email_vectorizer.transform([email_features.get("tokens_text", "")])
+                text_field = getattr(self.email_model, "text_field", "tokens_text")
+                vector = self.email_vectorizer.transform([email_features.get(text_field, "")])
                 phishing_proba = self.email_model.predict_proba(vector)[0][1]
                 score += phishing_proba * self.EMAIL_MODEL_WEIGHT
                 weight_total += self.EMAIL_MODEL_WEIGHT
@@ -215,6 +216,11 @@ def _resolve_url_component(backend: str) -> tuple:
 def _resolve_email_component(backend: str) -> tuple:
     if backend == "rule_based":
         return None, None, None, "rule_based"
+    if backend == "bert":
+        from app.pipeline.bert_email import BertEmailModel, IdentityVectorizer
+
+        model = BertEmailModel(Path(settings.email_bert_model_path))
+        return model, IdentityVectorizer(), model.artifact_sha256, "distilbert"
     if backend == "trained":
         email_model, email_vectorizer, email_sha256, email_name = _load_email_model()
         if email_model is None:
@@ -224,7 +230,7 @@ def _resolve_email_component(backend: str) -> tuple:
                 "python -m ml.training.train_email_classifier"
             )
         return email_model, email_vectorizer, email_sha256, email_name
-    raise NotImplementedError(f"email_classifier_backend '{backend}' must be 'rule_based' or 'trained'.")
+    raise NotImplementedError(f"email_classifier_backend '{backend}' must be 'rule_based', 'trained', or 'bert'.")
 
 
 @lru_cache(maxsize=8)

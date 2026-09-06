@@ -2,7 +2,7 @@ import re
 from email import message_from_string
 from email.utils import parseaddr
 
-from app.pipeline.preprocessing import preprocess_email_text, strip_email_headers
+from app.pipeline.preprocessing import preprocess_email_text, strip_email_headers, redact_email_and_urls
 
 _URGENCY_KEYWORDS = [
     "urgent", "verify your account", "suspended", "click here", "act now",
@@ -62,6 +62,7 @@ def extract_email_features(email_text: str) -> dict:
         # so the trained TF-IDF model (see classifiers.TrainedClassifier) sees
         # identical input live to what it was trained/evaluated on.
         "tokens_text": " ".join(tokens),
+        "bert_text": redact_email_and_urls(body),
     }
 
     return {**header_features, **nlp_features, "urls_in_body": urls_in_body}

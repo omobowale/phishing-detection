@@ -12,6 +12,9 @@ scikit-learn==1.9.0  # pinned exactly, not >=: affects exact ml/README.md number
 xgboost==3.4.1       # same reason
 transformers>=4.40
 torch>=2.2
+accelerate>=1.1.0  # required by transformers.Trainer (ml/training/train_email_bert.py) --
+                    # this transformers/torch version needs >=1.1.0 specifically, not just
+                    # "some accelerate"; a bare >=0.26 install fails at Trainer construction
 nltk>=3.8
 pandas==3.0.5        # same reason -- also the version this project's pandas-3.0 groupby-apply
                       # behavior-change fix (ml/training/build_features.py) was written against
