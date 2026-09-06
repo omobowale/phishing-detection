@@ -263,8 +263,15 @@ def main() -> None:
         per_device_train_batch_size=TRAIN_BATCH_SIZE,
         per_device_eval_batch_size=EVAL_BATCH_SIZE,
         learning_rate=LEARNING_RATE,
-        eval_strategy="epoch",
-        save_strategy="epoch",
+        # Step-based, not epoch-based: this machine has only ~7.8GB RAM shared
+        # with everything else running on it, and a real run OOM-killed itself
+        # at step 2191/11247 with zero checkpoints saved (epoch boundaries are
+        # 3749 steps apart) -- 4.6 hours of compute lost to nothing. 500 steps
+        # is ~40-60 minutes at this pace, bounding future loss to that instead.
+        eval_strategy="steps",
+        eval_steps=500,
+        save_strategy="steps",
+        save_steps=500,
         save_total_limit=2,
         load_best_model_at_end=True,
         metric_for_best_model="f1",
