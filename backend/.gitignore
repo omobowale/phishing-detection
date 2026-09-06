@@ -12,6 +12,8 @@ __pycache__/
 # URLs) are kept -- they're exactly the citable, human-reviewable evidence
 # ml/README.md's findings depend on, not something to regenerate and lose.
 /ml/saved_models/**/*.joblib
+/ml/saved_models/bert_checkpoints/
+/ml/saved_models/bert_email_classifier/
 /ml/data/raw/
 /ml/data/processed/*.parquet
 /ml/data/raw_email/

@@ -22,19 +22,20 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", choices=["trained", "rule_based"], default="trained")
+    parser.add_argument("--input-type", choices=["url", "email_text"], default="url")
     parser.add_argument("--limit", type=int, help="Optional smoke-test size; omit for full evaluation")
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + args.backend + "_" + secrets.token_hex(3)
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + args.input_type + "_" + args.backend + "_" + secrets.token_hex(3)
     run_dir = ROOT / "ml/evaluation/runs" / run_id
     run_dir.mkdir(parents=True)
     db_path = run_dir / "evaluation.db"
     env = os.environ.copy()
-    # URL-only evaluation harness (run_evaluation.py only ever submits {"url": ...}),
-    # so only URL_CLASSIFIER_BACKEND is set here -- EMAIL_CLASSIFIER_BACKEND is left
-    # at its own default since it's never exercised by this evaluation.
-    env.update(DATABASE_URL="sqlite:///" + db_path.as_posix(), URL_CLASSIFIER_BACKEND=args.backend,
+    # Isolate the selected modality; never inherit the other component's backend.
+    env.update(DATABASE_URL="sqlite:///" + db_path.as_posix(),
+               URL_CLASSIFIER_BACKEND=args.backend if args.input_type == "url" else "rule_based",
+               EMAIL_CLASSIFIER_BACKEND=args.backend if args.input_type == "email_text" else "rule_based",
                SECRET_KEY=secrets.token_urlsafe(48), EVALUATION_PASSWORD=secrets.token_urlsafe(24),
                PYTHONUNBUFFERED="1", ENVIRONMENT="development")
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
@@ -65,6 +66,7 @@ def main():
                     time.sleep(.25)
             command = [sys.executable, "-m", "ml.evaluation.run_evaluation", "--base-url", base_url,
                        "--admin-email", "evaluation@example.com", "--classifier-backend", args.backend,
+                       "--input-type", args.input_type,
                        "--db-path", str(db_path), "--output", str(run_dir / "results.json")]
             if args.limit:
                 command.extend(["--limit", str(args.limit)])

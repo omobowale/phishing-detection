@@ -48,14 +48,15 @@ def classification_metrics(results):
                                          map(int, [tn, fp, fn, tp])))}
 
 
-def _run_detection_pass(base_url, urls_df):
+def _run_detection_pass(base_url, urls_df, input_type="url"):
     results, rejected = [], []
     with httpx.Client(base_url=base_url, timeout=30, trust_env=False) as client:
         for i, row in enumerate(urls_df.itertuples(), 1):
             start = time.perf_counter()
-            record = {"url": row.url, "true_label": row.label}
+            value = row.url if input_type == "url" else row.text
+            record = {input_type: value, "true_label": row.label}
             try:
-                response = client.post(f"{API_PREFIX}/detect", json={"url": row.url})
+                response = client.post(f"{API_PREFIX}/detect", json={input_type: value})
                 record["round_trip_ms"] = (time.perf_counter() - start) * 1000
                 if response.status_code == 200:
                     results.append({**record, **response.json()})
@@ -69,7 +70,7 @@ def _run_detection_pass(base_url, urls_df):
     return results, rejected
 
 
-def _throughput_probe(base_url, sample_urls, concurrency=40):
+def _throughput_probe(base_url, sample_urls, concurrency=40, input_type="url"):
     """Measure valid-input capacity, retaining HTTP statuses and round-trip times."""
     if not sample_urls:
         raise ValueError("Throughput probe needs valid inputs")
@@ -77,7 +78,7 @@ def _throughput_probe(base_url, sample_urls, concurrency=40):
         def one(url):
             start = time.perf_counter()
             try:
-                response = client.post(f"{API_PREFIX}/detect", json={"url": url})
+                response = client.post(f"{API_PREFIX}/detect", json={input_type: url})
                 status = str(response.status_code)
             except httpx.HTTPError:
                 status = "transport_error"
@@ -100,7 +101,13 @@ def _label_logs(db_path, results):
     """Only label an exact, fresh-run match; validate before making any updates."""
     with sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=rw", uri=True) as db:
         logs = db.execute("SELECT id,input_data,prediction,actual_label FROM detection_logs").fetchall()
-        by_input = {f"url: {r['url'].strip()}": r for r in results}
+        by_input = {}
+        for result in results:
+            field = "url" if "url" in result else "email_text"
+            key = f"{field}: {result[field].strip()}"
+            if key in by_input:
+                raise RuntimeError("Duplicate normalized evaluation inputs")
+            by_input[key] = result
         if len(by_input) != len(results) or len(logs) != len(results):
             raise RuntimeError("Evaluation requires unique inputs and an otherwise empty log database")
         updates, seen = [], set()
@@ -122,6 +129,7 @@ def main():
     parser.add_argument("--classifier-backend", required=True, choices=["trained", "rule_based"])
     parser.add_argument("--db-path", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--input-type", choices=["url", "email_text"], default="url")
     parser.add_argument("--limit", type=int)
     args = parser.parse_args()
     if not args.admin_password:
@@ -131,8 +139,14 @@ def main():
     predictions_path = args.output.with_suffix(".predictions.jsonl")
     if args.output.exists() or predictions_path.exists():
         parser.error("Output exists; choose a new run path to preserve prior evidence")
-    test_hash = file_hash(TEST_URLS_PATH)
-    urls = pd.read_csv(TEST_URLS_PATH)
+    test_path = TEST_URLS_PATH if args.input_type == "url" else BACKEND_ROOT / "ml/data/processed_email/test_emails.csv"
+    def source_hashes():
+        return {str(p.relative_to(BACKEND_ROOT)): file_hash(p)
+                for root in (BACKEND_ROOT / "app", BACKEND_ROOT / "ml/evaluation")
+                for p in sorted(root.rglob("*.py"))}
+    source_before = source_hashes()
+    test_hash = file_hash(test_path)
+    urls = pd.read_csv(test_path)
     if args.limit:
         urls = urls.head(args.limit)
     with httpx.Client(base_url=args.base_url, timeout=30, trust_env=False) as client:
@@ -146,13 +160,14 @@ def main():
             return response.json()
         runtime = get("metrics/runtime")  # Load model before timing warm inference.
         expected_db = sha256(str(args.db_path.resolve()).encode()).hexdigest()
-        if runtime["url_classifier_backend"] != args.classifier_backend or runtime["database_identity"] != expected_db:
+        component = "url" if args.input_type == "url" else "email"
+        if runtime[f"{component}_classifier_backend"] != args.classifier_backend or runtime["database_identity"] != expected_db:
             raise RuntimeError("Server backend/database does not match this evaluation")
         if get("metrics")["total_requests"] or get("whitelist"):
             raise RuntimeError("Evaluation requires a fresh log database and empty allowlist")
         print(f"Verified runtime: {runtime}; evaluating {len(urls)} URLs", flush=True)
         start = time.perf_counter()
-        results, rejected = _run_detection_pass(args.base_url, urls)
+        results, rejected = _run_detection_pass(args.base_url, urls, args.input_type)
         elapsed = time.perf_counter() - start
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with predictions_path.open("x", encoding="utf-8") as stream:
@@ -166,21 +181,19 @@ def main():
             for k in ("accuracy", "precision", "recall", "f1_score")
         ):
             raise RuntimeError("API metrics disagree with independently scored HTTP responses")
-        valid_urls = pd.Series([r["url"] for r in results]).sample(n=min(500, len(results)), random_state=42).tolist()
+        valid_urls = pd.Series([r[args.input_type] for r in results]).sample(n=min(500, len(results)), random_state=42).tolist()
         print("Running valid-input concurrent capacity probe", flush=True)
-        throughput = _throughput_probe(args.base_url, valid_urls)
-        if get("metrics/runtime") != runtime or file_hash(TEST_URLS_PATH) != test_hash:
-            raise RuntimeError("Runtime or test data changed during evaluation")
+        throughput = _throughput_probe(args.base_url, valid_urls, input_type=args.input_type)
+        if get("metrics/runtime") != runtime or file_hash(test_path) != test_hash or source_hashes() != source_before:
+            raise RuntimeError("Runtime, test data, or source files changed during evaluation")
     failures = [r for r in rejected if r["status_code"] not in (400, 422)]
     report = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "classifier_backend_evaluated": args.classifier_backend, "runtime": runtime,
+        "classifier_backend_evaluated": args.classifier_backend, "input_type": args.input_type, "runtime": runtime,
         "test_set_sha256": test_hash, "predictions_sha256": file_hash(predictions_path),
         "environment": {"python": platform.python_version(), "platform": platform.platform(),
                         "packages": {p: version(p) for p in ("fastapi", "uvicorn", "scikit-learn", "xgboost", "numpy", "pandas", "httpx")}},
-        "source_sha256": {str(p.relative_to(BACKEND_ROOT)): file_hash(p)
-                          for root in (BACKEND_ROOT / "app", BACKEND_ROOT / "ml/evaluation")
-                          for p in sorted(root.rglob("*.py"))},
+        "source_sha256": source_before,
         "test_set_size": len(urls), "evaluated_count": len(results), "rejected_count": len(rejected),
         "validation_rejection_count": len(rejected) - len(failures), "unexpected_failure_count": len(failures),
         "rejected_by_label": dict(Counter(r["true_label"] for r in rejected)), "rejected_samples": rejected,

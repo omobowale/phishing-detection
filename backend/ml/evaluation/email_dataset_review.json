@@ -1,0 +1,42 @@
+{
+  "rows": 44304,
+  "split_sizes": {
+    "train": 30857,
+    "test": 6757,
+    "val": 6690
+  },
+  "source_label_counts": {
+    "legitimate": {
+      "CEAS_08": 17155,
+      "Enron": 15791,
+      "Ling": 2401,
+      "Nazario": 0,
+      "Nigerian_Fraud": 0,
+      "SpamAssasin": 4075
+    },
+    "phishing": {
+      "CEAS_08": 0,
+      "Enron": 0,
+      "Ling": 0,
+      "Nazario": 1563,
+      "Nigerian_Fraud": 3319,
+      "SpamAssasin": 0
+    }
+  },
+  "exact_duplicate_texts": 0,
+  "duplicate_token_rows": 1790,
+  "conflicting_token_groups": 1,
+  "test_rows_with_train_tokens": 142,
+  "test_seen_tokens_by_label": {
+    "legitimate": 138,
+    "phishing": 4
+  },
+  "api_rejected_test_rows": 6,
+  "interpretation": "Subject grouping does not prevent identical postprocessed token text crossing splits. Source is perfectly correlated with label; these metrics cannot rule out source cues.",
+  "input_sha256": {
+    "backend/ml/data/processed_email/email_features.parquet": "56baad00accc0db14341f0417c5350d4bee642ffaa5951b1d2bb55751ef9e52f",
+    "backend/ml/data/processed_email/test_emails.csv": "96b623cc89927e0f69636a4c825022aaf24f008564188ed9308df1484f1785ac",
+    "backend/ml/saved_models/email_classifier.joblib": "87290642436aeae47707f8c2cedde4ed931a5b216e956471c70ff76e7bc309de",
+    "backend/ml/training/build_email_features.py": "1476ced757ac741542c73d1f208d09cb81ded827e67929acc35366d6db273a01"
+  }
+}

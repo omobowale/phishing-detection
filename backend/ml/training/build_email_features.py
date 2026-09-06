@@ -141,6 +141,38 @@ def main() -> None:
         print(f"Dropping {empty_tokens.sum()} rows with no tokens left after preprocessing")
         df = df[~empty_tokens]
 
+    # Preprocessing (redaction, lemmatization, stopword removal) collapses many
+    # superficially-different raw emails onto identical token text -- far more
+    # than the raw-text dedup above catches. An external review (README_EMAIL.md
+    # section 6) found 1,790 rows shared token text with at least one other row,
+    # and 142 test-split rows had token text identical to a training row: real
+    # leakage the subject-only group split above does not prevent. Quarantine
+    # label conflicts FIRST -- same order lesson as the URL pipeline's
+    # quarantine-before-cleaning fix (ml/README.md section 12.3): never
+    # silently pick a label by keeping an arbitrary duplicate out of a group
+    # that disagrees on label.
+    label_counts_per_token = df.groupby("tokens")["label"].nunique()
+    conflicting_tokens = set(label_counts_per_token[label_counts_per_token > 1].index)
+    if conflicting_tokens:
+        conflict_mask = df["tokens"].isin(conflicting_tokens)
+        df[conflict_mask][["text", "tokens", "label", "source"]].to_csv(
+            PROCESSED_DIR / "quarantined_token_conflicts.csv", index=False
+        )
+        print(
+            f"Quarantined {conflict_mask.sum()} row(s) across {len(conflicting_tokens)} "
+            "token-text group(s) with conflicting labels -> quarantined_token_conflicts.csv"
+        )
+        df = df[~conflict_mask]
+
+    before = len(df)
+    df = df.drop_duplicates(subset="tokens", keep="first")
+    if before != len(df):
+        print(
+            f"Dropped {before - len(df)} row(s) with duplicate post-preprocessing token text "
+            "(kept one representative per unique token string -- this is what actually prevents "
+            "identical processed text from landing in both train and test, not just subject grouping)"
+        )
+
     groups = df["subject"].apply(_subject_group_key)
     train_idx, temp_idx = next(
         GroupShuffleSplit(n_splits=1, test_size=0.3, random_state=RANDOM_STATE).split(df, groups=groups)

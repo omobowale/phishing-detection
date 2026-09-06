@@ -139,9 +139,11 @@ class TrainedClassifier(BaseClassifier):
     def predict(self, url_features: dict | None, email_features: dict | None) -> tuple[Prediction, float]:
         score = 0.0
         weight_total = 0.0
+        has_trained_signal = False
 
         if url_features:
             if self.url_model is not None:
+                has_trained_signal = True
                 vector = [[url_features.get(col, 0) for col in self.url_feature_columns]]
                 phishing_proba = self.url_model.predict_proba(vector)[0][1]
                 score += phishing_proba * self.URL_MODEL_WEIGHT
@@ -153,6 +155,7 @@ class TrainedClassifier(BaseClassifier):
 
         if email_features:
             if self.email_model is not None:
+                has_trained_signal = True
                 # tokens_text: see feature_extraction_email.py -- the same
                 # strip_email_headers() -> preprocess_email_text() pipeline
                 # build_email_features.py used to train this vectorizer/model.
@@ -165,7 +168,9 @@ class TrainedClassifier(BaseClassifier):
                 score += email_s
                 weight_total += email_w
 
-        return _combine(score, weight_total)
+        # Enabling the other modality must not alter a heuristic-only request.
+        # Only use the trained fusion threshold when a trained model actually voted.
+        return _combine(score, weight_total, threshold=0.5 if has_trained_signal else 0.4)
 
 
 def _load_url_model() -> tuple:

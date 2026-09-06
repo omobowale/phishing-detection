@@ -1,0 +1,43 @@
+{
+  "rows": 42513,
+  "split_sizes": {
+    "train": 29991,
+    "test": 6338,
+    "val": 6184
+  },
+  "duplicate_token_rows": 0,
+  "conflicting_token_groups": 0,
+  "test_rows_with_train_tokens": 0,
+  "source_label_counts": {
+    "legitimate": {
+      "CEAS_08": 16923,
+      "Enron": 14386,
+      "Ling": 2396,
+      "Nazario": 0,
+      "Nigerian_Fraud": 0,
+      "SpamAssasin": 4058
+    },
+    "phishing": {
+      "CEAS_08": 0,
+      "Enron": 0,
+      "Ling": 0,
+      "Nazario": 1522,
+      "Nigerian_Fraud": 3228,
+      "SpamAssasin": 0
+    }
+  },
+  "input_sha256": {
+    "backend\\ml\\data\\processed_email\\email_features.parquet": "a59d643491f2dd660e5259ec54984ce73973e2be9f723606a2f16872571f9d39",
+    "backend\\ml\\saved_models\\email_classifier.joblib": "c7b7b30e4d20bd91fea460d5679a5ce2bce83685431beed9934a438a4ade7318",
+    "backend\\ml\\data\\processed_email\\test_emails.csv": "11e0ccbbc9c93852cf48eec4e9e344087b9a96ca3112ee5b7d2913bd66551c01"
+  },
+  "interpretation": "Updated artifact audit: exact token leakage removed; source remains perfectly associated with label.",
+  "model_name": "logistic_regression",
+  "reproduced_test_metrics": {
+    "accuracy": 0.9946355317134743,
+    "precision": 0.9733893557422969,
+    "recall": 0.9788732394366197,
+    "f1": 0.976123595505618
+  },
+  "test_csv_matches_parquet": true
+}

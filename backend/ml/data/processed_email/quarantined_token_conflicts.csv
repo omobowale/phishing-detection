@@ -1,0 +1,19 @@
+text,tokens,label,source
+"https://hurinet.or.ug/webapp/, ,  1",urltoken,phishing,Nazario
+"Fwd: FW: 7 days ---------- Forwarded message ----------
+From: Marko Bucar 
+Date: Wed, 23 Feb 2005 17:04:10 +0100
+Subject: FW: 7 days
+To: oiwan@codes.si, cminmj.ngbrb@gmail.com, xczcezebm@hotmail.com
+
+
+
+
+http://www.the-tape.com/",urltoken,legitimate,CEAS_08
+"Re: JPEGs patented So are PNGs still kosh?
+
+
+
+
+
+http://xent.com/mailman/listinfo/fork",urltoken,legitimate,SpamAssasin

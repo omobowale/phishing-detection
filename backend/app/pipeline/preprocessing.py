@@ -90,23 +90,33 @@ def strip_email_headers(text: str) -> str:
     return text
 
 
-def preprocess_email_text(text: str) -> list[str]:
-    """Tokenize, remove stop-words, and lemmatize email body text for
-    TF-IDF / classical-model feature extraction.
+def redact_email_and_urls(text: str) -> str:
+    """Replace email addresses and URLs with placeholder tokens BEFORE any
+    further processing. Confirmed why this matters: in
+    ml/training/build_email_features.py's training data, a trained model's
+    top features included "jose"/"monkey" -- fragments of "jose@monkey.org",
+    the address every phishing example from one source happened to be sent
+    to, since they were all collected from one person's mailbox. Left
+    unredacted, a classifier can key on a specific recipient's address rather
+    than general phishing language, which won't generalize to email
+    addressed to anyone else. Standard practice in spam/phishing text
+    classification, not a one-off patch for this dataset.
 
-    Email addresses and URLs are redacted to placeholder tokens BEFORE
-    word-tokenization, not left for _WORD_RE to fragment. Confirmed why this
-    matters: in ml/training/build_email_features.py's training data, a
-    trained model's top features included "jose"/"monkey" -- fragments of
-    "jose@monkey.org", the address every phishing example from one source
-    happened to be sent to, since they were all collected from one person's
-    mailbox. Left unredacted, a classifier can key on a specific recipient's
-    address rather than general phishing language, which won't generalize to
-    email addressed to anyone else. Standard practice in spam/phishing text
-    classification, not a one-off patch for this dataset."""
-    _load_nltk()
+    Shared by preprocess_email_text() (classical TF-IDF pipeline, which
+    lowercases/tokenizes/lemmatizes afterward) and
+    ml/training/train_email_bert.py (BERT fine-tuning, which wants natural
+    casing/punctuation preserved for its own subword tokenizer) so both apply
+    the identical fix rather than two independently-maintained copies."""
     text = _EMAIL_RE.sub(" emailaddresstoken ", text)
     text = _URL_RE.sub(" urltoken ", text)
+    return text
+
+
+def preprocess_email_text(text: str) -> list[str]:
+    """Tokenize, remove stop-words, and lemmatize email body text for
+    TF-IDF / classical-model feature extraction."""
+    _load_nltk()
+    text = redact_email_and_urls(text)
     tokens = [t.lower() for t in _WORD_RE.findall(text)]
 
     if _lemmatizer:

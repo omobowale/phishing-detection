@@ -42,6 +42,25 @@ def test_sequential_pass_preserves_rejections_and_successful_predictions(monkeyp
     assert evaluation.classification_metrics(accepted)["recall"] == 1
 
 
+def test_email_evaluation_uses_email_payload_and_multiline_log_keys(monkeypatch, tmp_path):
+    import json
+    content = "Subject: Notice\n\nPlease verify your account."
+    def handler(request):
+        assert json.loads(request.content) == {"email_text": content}
+        return httpx.Response(200, json={"classification": "phishing", "confidence_score": .9})
+    install_transport(monkeypatch, handler)
+    accepted, rejected = evaluation._run_detection_pass("http://test", pd.DataFrame(
+        {"text": [content], "label": ["phishing"]}), "email_text")
+    assert not rejected
+    path = tmp_path / "email.db"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE detection_logs (id INTEGER,input_data TEXT,prediction TEXT,actual_label TEXT)")
+        db.execute("INSERT INTO detection_logs VALUES (1,?,'phishing',NULL)", (f"email_text: {content}",))
+    evaluation._label_logs(path, accepted)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT actual_label FROM detection_logs").fetchone()[0] == "phishing"
+
+
 def test_labeling_rejects_mismatched_predictions_without_partial_updates(tmp_path):
     path = tmp_path / "eval.db"
     with sqlite3.connect(path) as db:
@@ -88,3 +107,20 @@ def test_detection_timing_update_does_not_refresh_expired_row(client):
     insert_at = next(i for i, sql in enumerate(statements) if sql.startswith("INSERT INTO DETECTION_LOGS"))
     update_at = next(i for i, sql in enumerate(statements) if sql.startswith("UPDATE DETECTION_LOGS"))
     assert not any(sql.startswith("SELECT") for sql in statements[insert_at + 1:update_at])
+
+
+def test_enabling_email_model_does_not_change_url_heuristic_threshold():
+    from app.pipeline.classifiers import RuleBasedClassifier, TrainedClassifier
+    from app.pipeline.feature_extraction_url import extract_url_features
+    features = extract_url_features("http://192.168.1.1/login@account")
+    expected = RuleBasedClassifier().predict(features, None)
+    assert expected[0].value == "phishing"
+    assert TrainedClassifier(email_model=object()).predict(features, None) == expected
+
+
+def test_enabling_url_model_does_not_change_email_heuristic_threshold():
+    from app.pipeline.classifiers import RuleBasedClassifier, TrainedClassifier
+    features = {"reply_to_mismatch": True, "url_count_in_body": 3, "all_caps_word_count": 3}
+    expected = RuleBasedClassifier().predict(None, features)
+    assert expected[0].value == "phishing"
+    assert TrainedClassifier(url_model=object()).predict(None, features) == expected

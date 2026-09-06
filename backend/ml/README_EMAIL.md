@@ -1,5 +1,13 @@
 # Email/NLP Pipeline — Dataset, Training, and Findings
 
+> Review update (fixed): a review found the saved 97.97% F1 was reproduced on pre-deduplication
+> artifacts with 142 test rows whose token text appeared in training and one conflicting
+> token-text group — subject grouping alone doesn't prevent this. **Fixed and retrained**: see
+> section 3.1 for the corrected result (F1 0.9761, still meets every spec target) and section 6
+> for the full review. The dataset's source/label confound (every source contributes only one
+> class) is a separate, structural limitation that resplitting cannot fix — still applies, see 3.1.
+
+
 This documents the email/NLP half of build-order phase 2 (`../../phishing-detection-dev-spec.md`
 section 8's "TF-IDF for classical models, BERT embeddings for transformer model"). Written to be
 citable directly in the thesis, same convention as `ml/README.md` (the URL classifier's
@@ -159,9 +167,60 @@ compromise scams use exactly this template.
 
 **Top predictive features** (confirmed, post-fix): `account, dear, bank, million, money, email,
 reply, fund, click, contact, security, urgent, dollar, transfer, mr, country, assistance,
-emailaddresstoken, kindly, ...` — genuine advance-fee-fraud/phishing vocabulary, no source-specific
-artifacts remaining. `emailaddresstoken` ranking as a real (not source-specific) signal is a good
+emailaddresstoken, kindly, ...` — genuine advance-fee-fraud/phishing vocabulary, no obvious collector-address fragments among those inspected features. This does not rule out other source-specific cues. `emailaddresstoken` ranking as a real (not source-specific) signal is a good
 outcome: the model learned "an email address is mentioned" generalizes, not "which one."
+
+### 3.1 Token-level leakage fix (2026-09-06) — corrected results
+
+§6's review found that subject-line grouping does not prevent leakage: after redaction/
+lemmatization/stopword-removal, 1,790 rows across the dataset collapsed onto duplicate token text,
+and 142 test rows had token text identical to a training row — real leakage a subject-only split
+can't see, since it only groups by the raw subject line, not by what the text becomes after
+preprocessing. One token-text group also carried both labels (a genuine annotation conflict, not
+just a duplicate).
+
+**Fix** in `build_email_features.py`, applied in the same order the URL pipeline's own conflict-
+quarantine bug taught (quarantine conflicts *before* other cleaning, never let a later step
+silently resolve a disagreement it can't see): after computing `tokens`, any token-text group
+whose rows disagree on label is quarantined entirely (3 rows, 1 group — logged to
+`quarantined_token_conflicts.csv`), then the remaining exact token-text duplicates are dropped,
+keeping one representative per unique token string (1,788 rows). This isn't a heuristic — dropping
+to one row per unique token string makes cross-split leakage of this kind structurally impossible,
+not just less likely.
+
+Rebuilt and retrained (`Logistic Regression` now edges out Random Forest on validation F1 by a
+hair — both are close):
+
+| Split | Rows | Phishing | Legitimate |
+|---|---|---|---|
+| Train | 29,991 | 3,325 | 26,666 |
+| Val | 6,184 | 715 | 5,469 |
+| Test | 6,338 | 710 | 5,628 |
+
+| Metric | Before fix | After fix |
+|---|---|---|
+| Accuracy | 0.9945 | 0.9946 |
+| Precision | 0.9900 | 0.9734 |
+| Recall | 0.9697 | 0.9789 |
+| F1 | 0.9797 | 0.9761 |
+| Average precision (PR-AUC) | 0.9939 | 0.9966 |
+| Confusion matrix | TN=5825, FP=9, FN=28, TP=895 | TN=5609, FP=19, FN=15, TP=695 |
+
+**Still meets every spec-wide target** (F1 0.9761 ≥ 0.90, precision 0.9734 ≥ 0.91, recall 0.9789 ≥
+0.90), sanity check still 3/3 and 3/3. The number moved by about half a point of F1, not
+collapsed — reassuring evidence the original result wasn't primarily an artifact of this specific
+leakage, though see the caveat below, which this fix does not address.
+
+**What this fix does NOT address** (per §6, and worth restating plainly rather than letting the
+corrected numbers imply more than they show): every source in this dataset contributes only one
+class — Nazario/Nigerian_Fraud are 100% phishing, the four ham sources are 100% legitimate. No
+resplitting can separate "the model learned phishing language" from "the model learned which
+collection/source this came from" when every example of one class comes from sources the other
+class never touches. This is a structural property of the dataset's composition, not a splitting
+bug — the honest fix would be sourcing phishing and legitimate examples from more overlapping
+collection pipelines, which isn't available here. Treat the corrected F1 0.9761 as a strong,
+now leakage-controlled result on *this* dataset, not a settled claim that the model has learned
+source-independent phishing language.
 
 ---
 
@@ -181,9 +240,8 @@ outcome: the model learned "an email address is mentioned" generalizes, not "whi
 `TrainedURLClassifier`, generalized) loads `email_classifier.joblib` when `EMAIL_CLASSIFIER_
 BACKEND=trained`, and/or `url_classifier.joblib` when `URL_CLASSIFIER_BACKEND=trained` --
 these are two independent settings (`ml/README.md` §16), not one shared flag, specifically so the
-email model (ready) can go live without also re-enabling the URL model's known bare-domain false-
-positive problem (not ready, `ml/README.md` §5/§6). Either side falls back to its rule-based
-heuristic when its own setting is `rule_based` or its model file is missing. `extract_email_
+email model (trained; further validation required) can go live without also re-enabling the URL model's known bare-domain false-
+positive problem (not ready, `ml/README.md` §5/§6). Either side uses its rule-based heuristic when configured as `rule_based`. A component configured as `trained` fails explicitly if its artifact is missing. `extract_email_
 features()` now also returns `tokens_text` -- the exact same `strip_email_headers()` ->
 `preprocess_email_text()` output `build_email_features.py` used to build its `tokens` column --
 so the live TF-IDF vectorizer sees identical input to training, not a re-derived approximation.
@@ -215,3 +273,91 @@ python -m ml.training.train_email_classifier    # writes ml/saved_models/email_c
 the download script); the per-source CSVs are used, not the dataset's own pre-merged
 `phishing_email.csv` (which drops provenance and is what let the spam-mislabeling go unnoticed in
 the first place).
+
+
+## 6. Integration and dataset review (2026-09-06)
+
+The previous saved Random Forest metrics were independently reproduced from all 6,757
+held-out token sequences: F1 0.979748, precision 0.990044, recall 0.969664. A sample
+of 100 raw test emails produced the same tokens through live feature extraction.
+The test CSV matches the parquet test split.
+
+The following findings describe the historical artifacts; see the latest rebuild
+verification below for resolved items:
+
+- 1,790 duplicate token rows remain after exact raw-text deduplication. Across
+  training and test, 39 token strings overlap, affecting 142 test rows.
+- One token-text group contains both labels. Detect conflicts after preprocessing
+  before keeping an arbitrary raw-text copy or assigning splits.
+- Every source contributes only one class: Nazario/Nigerian_Fraud are positive;
+  CEAS_08/Enron/Ling/SpamAssasin are negative. A subject-grouped split retains this
+  association, so it cannot separate phishing cues from collection-source cues.
+- Six held-out emails exceed or otherwise fail the current API input schema.
+  API evaluation reports rejection coverage separately from classification metrics.
+
+Preserve this run as a development baseline. For a stronger experiment, quarantine
+conflicting postprocessed groups, assign connected subject/token groups to one
+split, and evaluate on separately sourced positive and negative messages. Do not
+claim the current source-label association was eliminated by address redaction.
+Evidence counts are saved in `evaluation/email_dataset_review.json`.
+
+A confirmed serving regression was fixed: enabling a trained model for the unused
+modality previously moved heuristic-only requests from threshold 0.4 to 0.5.
+The threshold now remains 0.4 unless a trained model actually contributes to the
+submitted input. Regression tests cover both URL-only and email-only fallbacks.
+
+Reproduce email API evaluation with an isolated database/server:
+
+```powershell
+.\.venv\Scripts\python.exe -m ml.evaluation.managed_run --backend trained --input-type email_text
+```
+
+For a short integration check add `--limit 20`. A short check is not a full test-set
+performance result. Trained email and URL-plus-email fusion remain separate claims;
+this email-only benchmark does not validate the combined classifier or replace
+BERT/DistilBERT work required by the original specification.
+
+**Follow-up: done.** `build_email_features.py` now quarantines token-text label conflicts and
+deduplicates on token text before splitting (see §3.1); features were rebuilt and the classical
+model retrained on the corrected data. Corrected result: F1 0.9761 (was 0.9797 on the leaky
+split), still meets every spec target. The source/label confound noted above is unchanged by this
+fix and remains an open, structural limitation — not something a live-API re-evaluation would
+reveal either, since it's a property of the training data's composition, not of serving.
+
+
+### DistilBERT work observed during this review
+
+`training/train_email_bert.py` and smoke artifacts now exist. The observed
+`bert_email_classifier_metrics.json` covers 40 training, 16 validation, and 16
+test examples with one epoch (test F1 0.3158); it is a pipeline smoke check, not
+a full-dataset BERT result. The runtime classifier currently loads only the
+classical joblib email model; no DistilBERT serving path is wired in yet.
+
+The latest updates remove exact token overlap and seed before `from_pretrained`
+initializes the classification head. Source bias still needs evaluation. Bind resume
+checkpoints to a dataset/split/configuration fingerprint: the script still resumes
+`checkpoint-*` under a shared directory without verifying those fingerprints.
+Preserve smoke metrics separately from final experiment results.
+
+
+### Follow-up builder change
+
+The builder now quarantines conflicting token groups and deduplicates token text
+before splitting. This resolves the identified identical-token overlap in the
+implementation. The audit counts above refer to the saved pre-change dataset
+(SHA-256 recorded in `evaluation/email_dataset_review.json`), not a claim that
+this revised builder has already been run. Rebuild features and retrain into a
+separate experiment before replacing the primary model or citing updated metrics.
+Source/label association remains a separate limitation after token deduplication.
+
+
+### Latest rebuild verification
+
+The new saved dataset has 42,513 rows: 29,991 train, 6,184 validation, and 6,338
+test. A fresh artifact audit confirms zero duplicate token rows, zero conflicting
+token groups, and zero test rows with training token text. The selected model is
+now Logistic Regression, with saved test F1 0.976124. Thus the rebuild/retraining
+requirement above has now been completed; the historical Random Forest results
+and smoke timings do not describe the new model. Source-label association remains.
+See `evaluation/email_dataset_review_updated.json` for the new artifact hashes
+and `evaluation/REVIEW_AND_RESULTS.md` for consolidated results.

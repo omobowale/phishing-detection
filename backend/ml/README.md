@@ -1,5 +1,7 @@
 # ML Pipeline — Dataset, Training, and Findings
 
+**Latest API results and update review:** [evaluation/REVIEW_AND_RESULTS.md](evaluation/REVIEW_AND_RESULTS.md). This separates completed full URL runs from email/BERT smoke checks.
+
 This documents build-order phases 1 and 2 (`../../phishing-detection-dev-spec.md` section 8):
 data collection/preprocessing and model development for the **URL classifier**. Written to be
 citable directly in the thesis (methodology, results, and limitations/future-work chapters) —
