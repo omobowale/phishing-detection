@@ -867,6 +867,14 @@ model. It does not meet the spec's F1≥0.90 target. Tuning does not close the g
 Neither backend is ready to ship; see §8 for the path forward (better/differently-sourced dataset,
 or a narrower URL-only thesis scope).
 
+**Latency, for completeness (not in the table above -- a serving-performance metric, not a
+classification one)**: mean HTTP round trip ~13-17ms for both backends, comfortably under any
+reasonable target. **Concurrent p95 was ~509ms (trained) / ~520ms (rule-based) under a 40-worker
+load test** -- both slightly over a 500ms tail-latency target even though mean latency clears it
+easily (`ml/evaluation/REVIEW_AND_RESULTS.md`). Report mean latency as the headline number if your
+target is stated as an average, but disclose p95 alongside it rather than omitting it -- the tail
+does not currently meet a strict "500ms for every request" reading of the spec.
+
 ---
 
 ## 15. Reproducing the API evaluation
@@ -943,3 +951,43 @@ Verified against the real running FastAPI server (not just direct model calls): 
 email and a real legitimate email both classify correctly via the trained email model; `google.com`
 correctly classifies as legitimate via the URL side's rule-based heuristic (confirming the split
 actually prevents the bare-domain regression, not just in theory).
+
+---
+
+## 17. External review response and deferred-work tracker (2026-09-06)
+
+A review of this repo's own evaluation docs and metrics files raised six points. Checked each
+against the actual current state (not taken on faith, per this whole document's own convention):
+
+1. **URL F1 gap (0.839 vs 0.90 target)** — confirmed, unchanged. **Deferred**: the reviewer's
+   suggested fix is sourcing PhishTank + the UCI Phishing Websites dataset instead of (or alongside)
+   the current Kaggle set, since §3/§10's audit already shows the current dataset's own internal
+   label conflicts are the likely ceiling, not something more tuning can fix (§14.4 confirms tuning
+   alone doesn't help). **Explicitly deferred, not started** — real multi-day scope, tracked here so
+   it isn't lost, not silently dropped. Revisit before treating F1 0.839 as the final number if time
+   allows.
+2. **Live URL default is `rule_based`, not `trained`** — confirmed, and correctly gated, not an
+   oversight: the trained model's bare-domain sanity check is 2/12 (item 6 below) — flipping on
+   aggregate F1 alone would trade "misses most phishing" for "flags ordinary websites as phishing."
+   **Action, once taken**: only flip `URL_CLASSIFIER_BACKEND` after item 1 is resolved to a bar that
+   also passes the bare-domain sanity check, not on F1 improvement alone. Email already made the
+   equivalent flip (§16) since it has no equivalent failure mode.
+3. **BERT never actually trained, only smoke-tested** — accurate when the review was written, now
+   **superseded**: full 3-epoch training on the corrected (§16, `README_EMAIL.md` §3.1) dataset has
+   been running since this section was added; see `README_EMAIL.md` for status/results once complete.
+4. **Email source/label confound** — confirmed, unresolved by design, already documented plainly in
+   `README_EMAIL.md` §6 (not something the token-dedup fix in that section addressed or claimed to).
+   **Deferred**: needs sourcing phishing/legitimate examples that don't perfectly correlate with
+   collection source, or a mixed-source holdout test set. Real data-sourcing scope, tracked here,
+   not started.
+5. **Concurrent p95 latency (~509-520ms) slightly exceeds a strict 500ms tail target** — confirmed;
+   now disclosed directly in §14.5 above rather than left in evaluation output only.
+6. **Email HTTP load numbers measured under competing work (a BERT smoke job running concurrently)**
+   — confirmed (`IMPLEMENTATION_FIXES.md`). **Deferred**: a clean, isolated re-run needs the machine
+   free of other CPU-heavy jobs -- specifically, the full BERT training run in item 3, which should
+   not be disturbed to get this measurement sooner. Re-run once BERT training completes.
+
+**Bottom line for whoever picks this up next**: items 1 and 4 are the two real, larger open
+questions (dataset sourcing) and are deliberately not started, given thesis-timeline tradeoffs --
+not forgotten. Item 2's flip is explicitly downstream of item 1, not independent of it. Items 3, 5,
+6 are either in progress or resolved by disclosure.

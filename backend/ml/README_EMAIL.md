@@ -16,8 +16,10 @@ equivalent document) — every number below came from an actual run.
 **Current state: classical TF-IDF classifier trained, meets spec-wide targets, and is wired into
 live serving (`EMAIL_CLASSIFIER_BACKEND=trained`, see section 4 — independent of the URL model's
 own `URL_CLASSIFIER_BACKEND` setting, since the two have very different maturity; see `ml/README.md`
-§16). BERT fine-tuning not yet done — CPU-only compute on this machine (no CUDA GPU), so the time
-budget for that needs a decision before committing to it.**
+§16). BERT fine-tuning is in progress: a full 3-epoch run on the corrected dataset (§3.1) started
+2026-09-06, CPU-only (no CUDA GPU on this machine), checkpointed per epoch and resumable across
+interruptions (`ml/training/experiment_identity.py`). Not complete as of this writing — see section
+7 once it is.**
 
 ---
 
@@ -361,3 +363,21 @@ requirement above has now been completed; the historical Random Forest results
 and smoke timings do not describe the new model. Source-label association remains.
 See `evaluation/email_dataset_review_updated.json` for the new artifact hashes
 and `evaluation/REVIEW_AND_RESULTS.md` for consolidated results.
+
+---
+
+## 7. BERT fine-tuning results (placeholder — fill in once training completes)
+
+Started 2026-09-06: `ml.training.train_email_bert` (`ml/saved_models/bert_runs/full/`),
+DistilBERT-base, 3 epochs, `max_length=128` (reduced from an initial 256 after discovering the
+original CPU-time benchmark used an unrepresentative ~20-token dummy sentence — real emails average
+212 tokens, 62% hit a 256-token cap, so the benchmark badly underestimated real per-step cost; see
+git history for `ml/training/train_email_bert.py` around 2026-09-06 for the full account). Runs on
+the same corrected, leakage-fixed split as §3.1/§6 (29,991 train / 6,184 val / 6,338 test),
+resumable via `ml/training/experiment_identity.py`'s manifest binding.
+
+**Do not cite any BERT number until this section is filled in with a real completed run's results**
+(test accuracy/precision/recall/F1/average precision, confusion matrix, sanity check, and a
+comparison against the classical model's F1 0.9761). The only BERT run completed before this one
+was a 40/16/16-example smoke check (test F1 0, `IMPLEMENTATION_FIXES.md`) that verifies the
+pipeline executes, not that a useful model was trained.
