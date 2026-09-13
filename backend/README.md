@@ -22,9 +22,14 @@ classifiers.py` controls them with two independent settings** (`URL_CLASSIFIER_B
   recall, `ml/evaluation/results.json`). Neither is ready to ship as "the" URL classifier;
   this is an open problem requiring a better/differently-sourced dataset or a narrower
   thesis scope (§8) — not something the codebase alone can resolve.
-- **Email**: the trained TF-IDF+RandomForest model meets every spec target on the first
-  properly-cleaned attempt (F1 0.980, precision 0.990, recall 0.970, `ml/README_EMAIL.md`
-  §3) with no equivalent known failure mode, and is wired in as the live default.
+- **Email**: the trained TF-IDF+Logistic Regression model meets every spec target after a
+  leakage fix (F1 0.9761, precision 0.9734, recall 0.9789, `ml/README_EMAIL.md` §3.1) with
+  no equivalent known failure mode, and is fully wired in as a selectable backend. **The
+  repository's own default is still `rule_based` for both settings** (`app/core/config.py`,
+  `.env.example`) — an operator opts into `trained` locally, it isn't what a fresh checkout
+  runs. The rule-based email heuristic, now actually measured (it hadn't been before,
+  `ml/README.md` §18.1), scores F1 0.0 — it never predicts phishing at all on the held-out
+  set, worse than the URL side's rule-based fallback.
 
 Performance NFRs are met regardless of classifier choice: latency ~13ms average (p99
 ~39ms) and **41.5 successful req/s under concurrent load**, clearing the spec's 20 req/s
@@ -88,6 +93,14 @@ API docs at `http://localhost:8000/docs`. Endpoints are under `/api/v1`.
 ```bash
 pytest
 ```
+
+**On a fresh checkout: 46 passed, 3 skipped.** The 3 skipped tests need the trained model
+`.joblib` files, which are deliberately gitignored (large, binary, regenerable — see
+`ml/README.md` §18.2). Run `python -m ml.training.train_url_classifier` and
+`python -m ml.training.train_email_classifier` first, then all 49 pass. Both counts are
+legitimate; they answer different questions ("does the code work" vs. "does the code work
+with trained models present") — don't cite "49 passed" without the caveat that it needs those
+artifacts on disk first.
 
 ## Notes / deviations from the spec's ERD
 

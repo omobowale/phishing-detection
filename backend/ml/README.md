@@ -941,11 +941,15 @@ would have forced an all-or-nothing choice between the two very different backen
 argues for keeping separate — so `TrainedURLClassifier` was generalized into `TrainedClassifier`
 (handles either/both) and the single setting was split into `URL_CLASSIFIER_BACKEND` and
 `EMAIL_CLASSIFIER_BACKEND`, resolved independently. **§6's decision to keep the URL side on
-`rule_based` is unchanged and still applies** — nothing in this section revisits that. The local
-`.env` now runs `URL_CLASSIFIER_BACKEND=rule_based` (per §6) with `EMAIL_CLASSIFIER_BACKEND=trained`
-(safe, per `README_EMAIL.md`). `ml/evaluation/managed_run.py`/`run_evaluation.py` are URL-only
-tools and were updated to set/read `URL_CLASSIFIER_BACKEND`/`url_classifier_backend` specifically;
-their `--backend`/`--classifier-backend` CLI flags are unchanged.
+`rule_based` is unchanged and still applies** — nothing in this section revisits that. **The
+repository's own default (`app/core/config.py`, `.env.example`) is `rule_based` for both settings**
+— a fresh checkout runs rule-based on both sides. One developer's local, gitignored `.env` was set
+to `URL_CLASSIFIER_BACKEND=rule_based` (per §6) with `EMAIL_CLASSIFIER_BACKEND=trained` (safe, per
+`README_EMAIL.md`) for manual testing on that machine only — that is not what ships, and earlier
+wording here that blurred the two has been corrected (§17). `ml/evaluation/managed_run.py`/
+`run_evaluation.py` have since been extended beyond URL-only (they now also support
+`--input-type email_text` and `--backend bert`) — see §17 for the review that prompted the original
+URL-only note, now superseded.
 
 Verified against the real running FastAPI server (not just direct model calls): a real phishing
 email and a real legitimate email both classify correctly via the trained email model; `google.com`
@@ -991,3 +995,75 @@ against the actual current state (not taken on faith, per this whole document's 
 questions (dataset sourcing) and are deliberately not started, given thesis-timeline tradeoffs --
 not forgotten. Item 2's flip is explicitly downstream of item 1, not independent of it. Items 3, 5,
 6 are either in progress or resolved by disclosure.
+
+---
+
+## 18. Second external review (2026-09-13): docs described one machine's local state as the shipped default
+
+Three more findings, all checked directly rather than taken on faith -- two were real documentation
+bugs (fixed here), one was a genuine ambiguity this section resolves with direct knowledge the repo
+alone couldn't provide.
+
+### 18.1 "Actual deployed settings" conflated a local `.env` with the repository's default
+
+`README_EMAIL.md` and this document both described `EMAIL_CLASSIFIER_BACKEND=trained` as "the actual
+deployed settings" / "the live default configuration." **Checked and confirmed wrong**:
+`app/core/config.py` and the checked-in `.env.example` both default `EMAIL_CLASSIFIER_BACKEND` to
+`rule_based`, same as the URL side. What those docs actually described was one developer's local,
+gitignored `.env` file, set for manual testing on one machine -- state that does not travel with a
+git clone. **Fixed**: both files now say plainly that a fresh checkout runs rule-based on *both*
+sides, and that "trained"/"bert" require an operator to opt in locally. This also means the original
+external review's item #2 ("the live default classifier is the worse one") was more right than
+first credited -- it's not just the URL side shipping with the weaker classifier by default, the
+email side does too, out of the box.
+
+**Consequence worth stating plainly**: until this fix, no document in this repo had ever reported a
+measured number for the rule-based email heuristic -- it was untested, not merely
+under-preferred. Measured now, via the same isolated evaluation harness used everywhere else in
+this document (`ml.evaluation.managed_run --backend rule_based --input-type email_text`, full
+6,335-row accepted test set):
+
+| Metric | Value |
+|---|---|
+| Accuracy | 0.888 |
+| Precision | **0.0** |
+| Recall | **0.0** |
+| F1 | **0.0** |
+| Confusion matrix | TN=5625, FP=0, FN=710, TP=0 |
+
+The rule-based email heuristic **never predicts phishing on this test set at all** -- every one of
+the 710 real phishing emails is missed. This is worse than the rule-based URL heuristic (F1 0.033,
+at least occasionally right) and confirms the shipped default for email is exactly as non-functional
+as the URL side's, not an untested-but-probably-fine fallback. See
+`ml/evaluation/runs/20260913T164355Z_email_text_rule_based_1bc208/results.json` for the full
+hashed-provenance report.
+
+### 18.2 "49 tests passed" is a claim about a machine with local model artifacts, not about this repo
+
+Three tests in `tests/test_classifiers.py` are `skipif`-guarded on the trained model `.joblib` files
+existing on disk. Those files are gitignored (`ml/saved_models/**/*.joblib`) by design -- they're
+large, binary, and regenerable, so they're deliberately not committed. **Verified directly**: with
+those files temporarily removed, `pytest` reports **46 passed, 3 skipped**, not 49 passed. The
+"49 passed" figure quoted elsewhere in this project's docs is real and accurate, but only describes
+a machine that already has both trained models sitting on disk locally (i.e., someone ran
+`train_url_classifier.py` and `train_email_classifier.py` first) -- that state does not travel with
+a fresh `git clone`. Both counts are legitimate; they answer different questions ("does the code
+work" vs. "does the code work with trained models present"), and both should be stated together from
+now on rather than just the larger number.
+
+### 18.3 The BERT status contradiction, resolved with direct knowledge
+
+`IMPLEMENTATION_FIXES.md` states only a 40-example smoke run had happened and that "this
+implementation pass did not run a multi-hour full experiment" -- true when it was written. But
+`ml/saved_models/bert_runs/full/experiment.json` (with `"smoke": false, "epochs": 3`) is evidence of
+a genuine full-scale run, and the repo alone can't show whether it finished, since the model
+directory and any `metrics.json` are gitignored until a run completes. **Direct answer, not
+inferable from the repo**: yes, a full run was started after `IMPLEMENTATION_FIXES.md` was written
+(§16/§17 both post-date it). It has been interrupted twice -- once by an out-of-memory crash on this
+machine's limited RAM (partway through, before its first checkpoint existed, costing real lost
+compute), once by a background process ending when its parent session did (not a crash, no lost
+compute since a checkpoint existed) -- and resumed both times via the identity-guarded manifest in
+`ml/training/experiment_identity.py`, specifically built because the first interruption happened for
+real. As of this writing it is genuinely in progress, not complete and not abandoned. `README_EMAIL.md`
+§7 is the placeholder to fill in with real numbers once it finishes; do not read `IMPLEMENTATION_
+FIXES.md`'s "did not run a multi-hour full experiment" line as still true.

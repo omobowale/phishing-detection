@@ -13,13 +13,18 @@ section 8's "TF-IDF for classical models, BERT embeddings for transformer model"
 citable directly in the thesis, same convention as `ml/README.md` (the URL classifier's
 equivalent document) — every number below came from an actual run.
 
-**Current state: classical TF-IDF classifier trained, meets spec-wide targets, and is wired into
-live serving (`EMAIL_CLASSIFIER_BACKEND=trained`, see section 4 — independent of the URL model's
-own `URL_CLASSIFIER_BACKEND` setting, since the two have very different maturity; see `ml/README.md`
-§16). BERT fine-tuning is in progress: a full 3-epoch run on the corrected dataset (§3.1) started
-2026-09-06, CPU-only (no CUDA GPU on this machine), checkpointed per epoch and resumable across
-interruptions (`ml/training/experiment_identity.py`). Not complete as of this writing — see section
-7 once it is.**
+**Current state: classical TF-IDF classifier trained, meets spec-wide targets, and can be selected
+for live serving via `EMAIL_CLASSIFIER_BACKEND=trained` (see section 4). Read that literally: the
+*repository's own default* — in `app/core/config.py` and the checked-in `.env.example` — is
+`rule_based` for both `URL_CLASSIFIER_BACKEND` and `EMAIL_CLASSIFIER_BACKEND`. A fresh checkout runs
+rule-based on both sides until an operator explicitly sets `trained`/`bert` in their own (gitignored,
+never committed) local `.env`. Earlier revisions of this document described one developer's local
+test configuration as if it were the shipped default -- corrected, see section 8. BERT fine-tuning
+is in progress: a full 3-epoch run on the corrected dataset (§3.1) started 2026-09-06, CPU-only (no
+CUDA GPU on this machine), checkpointed and resumable across interruptions
+(`ml/training/experiment_identity.py`) -- and has needed that resumability for real, twice (an
+out-of-memory crash and a session-lifetime interruption, both recovered without losing more than a
+checkpoint interval). Not complete as of this writing — see section 7 once it is.**
 
 ---
 
@@ -249,14 +254,16 @@ features()` now also returns `tokens_text` -- the exact same `strip_email_header
 so the live TF-IDF vectorizer sees identical input to training, not a re-derived approximation.
 
 Verified end-to-end against the real running FastAPI server (not just direct model calls), with
-the actual deployed settings (`EMAIL_CLASSIFIER_BACKEND=trained`, `URL_CLASSIFIER_BACKEND=
-rule_based`): a real phishing email and a real legitimate email both classify correctly via the
-trained email model, and `google.com` correctly classifies as legitimate via the URL side's
-rule-based heuristic -- confirming the backend split actually prevents the bare-domain regression
-in the live default configuration, not just in a hypothetical one. Separately, forcing
-`URL_CLASSIFIER_BACKEND=trained` for a one-off check reproduces the already-documented bare-domain
-false positive on `example.com`/`google.com` (`ml/README.md` §5) -- the existing, accepted URL
-model limitation, not a new integration bug, and exactly why it isn't the live default.
+one developer's local test configuration (`EMAIL_CLASSIFIER_BACKEND=trained`,
+`URL_CLASSIFIER_BACKEND=rule_based` -- set in a gitignored local `.env`, **not** the repository's
+own default, which is `rule_based` for both; see the corrected framing in section 8): a real
+phishing email and a real legitimate email both classify correctly via the trained email model, and
+`google.com` correctly classifies as legitimate via the URL side's rule-based heuristic --
+confirming the backend split actually prevents the bare-domain regression in that tested
+configuration, not just hypothetically. Separately, forcing `URL_CLASSIFIER_BACKEND=trained` for a
+one-off check reproduces the already-documented bare-domain false positive on
+`example.com`/`google.com` (`ml/README.md` §5) -- the existing, accepted URL model limitation, not a
+new integration bug, and exactly why it isn't recommended as a default.
 
 ---
 
