@@ -411,9 +411,12 @@ probes passed. `meets_spec_targets: true`.
 model's F1 0.9761 (§3.1) — a real but modest improvement, mainly a reduction in false negatives
 (5 vs. a higher count for the classical model on the same split). Both comfortably clear the
 spec's target and the untrained majority-class/rule-based baselines (F1 0.0, §18.1). Given the
-modest gap and BERT's much higher inference cost, the deployed default remains the classical
-model (`EMAIL_CLASSIFIER_BACKEND=trained`); BERT is available as an alternative backend for
-`app/pipeline/bert_email.py` but is not the shipped default.
+modest gap and BERT's much higher inference cost, the classical model (`EMAIL_CLASSIFIER_BACKEND=
+trained`) is the recommended choice over BERT (`bert`) when an operator does opt into a trained
+backend. **The repository's own shipped default is still `rule_based`** (`app/core/config.py`,
+`.env.example`) for both settings, same as noted in the top-level `README.md` — a fresh checkout
+runs neither trained model until an operator explicitly configures one. BERT is available as a
+selectable backend via `app/pipeline/bert_email.py` but is not the shipped default either.
 
 Reproducibility: `metrics.json`'s `experiment` block records the dataset SHA-256, code SHA-256 for
 `train_email_bert.py`/`preprocessing.py`/`experiment_identity.py`, the pretrained checkpoint

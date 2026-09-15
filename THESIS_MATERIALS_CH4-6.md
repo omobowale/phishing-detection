@@ -415,8 +415,12 @@ smaller than the gap you might expect from a full transformer versus a linear ba
 Both comfortably clear the spec's F1≥0.90 target. The honest framing for Chapter 5/6: BERT
 fine-tuning was pursued for completeness against the spec's stated architecture ("BERT embeddings
 for transformer model"), not because the classical model was inadequate — the classical model
-already met every target on its own (§5.2), and the deployed system's default backend remains the
-classical model, with BERT available as a selectable alternative. This is a legitimate and useful
+already met every target on its own (§5.2). Note for Chapter 4/6 consistency: the shipped
+repository default is still `rule_based` for both classifiers (`app/core/config.py`,
+`.env.example`) — neither the classical nor the BERT model runs on a fresh checkout without an
+operator explicitly opting in. Among the two trained backends, the classical model is the
+recommended choice given its much lower inference cost for a modest F1 gap. This is a legitimate
+and useful
 finding for Chapter 6: it demonstrates that architectural sophistication produced a measurable but
 small return over a much cheaper linear model on this task, which is itself worth discussing when
 weighing computational cost against marginal accuracy gain for deployment decisions.
