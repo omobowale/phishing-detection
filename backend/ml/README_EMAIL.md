@@ -373,18 +373,48 @@ and `evaluation/REVIEW_AND_RESULTS.md` for consolidated results.
 
 ---
 
-## 7. BERT fine-tuning results (placeholder — fill in once training completes)
+## 7. BERT fine-tuning results
 
-Started 2026-09-06: `ml.training.train_email_bert` (`ml/saved_models/bert_runs/full/`),
-DistilBERT-base, 3 epochs, `max_length=128` (reduced from an initial 256 after discovering the
-original CPU-time benchmark used an unrepresentative ~20-token dummy sentence — real emails average
-212 tokens, 62% hit a 256-token cap, so the benchmark badly underestimated real per-step cost; see
-git history for `ml/training/train_email_bert.py` around 2026-09-06 for the full account). Runs on
-the same corrected, leakage-fixed split as §3.1/§6 (29,991 train / 6,184 val / 6,338 test),
-resumable via `ml/training/experiment_identity.py`'s manifest binding.
+Started 2026-09-06, completed 2026-09-15: `ml.training.train_email_bert`
+(`ml/saved_models/bert_runs/full/`), DistilBERT-base, 3 epochs, `max_length=128` (reduced from an
+initial 256 after discovering the original CPU-time benchmark used an unrepresentative ~20-token
+dummy sentence — real emails average 212 tokens, 62% hit a 256-token cap, so the benchmark badly
+underestimated real per-step cost; see git history for `ml/training/train_email_bert.py` around
+2026-09-06 for the full account). Ran on the same corrected, leakage-fixed split as §3.1/§6
+(29,991 train / 6,184 val / 6,338 test).
 
-**Do not cite any BERT number until this section is filled in with a real completed run's results**
-(test accuracy/precision/recall/F1/average precision, confusion matrix, sanity check, and a
-comparison against the classical model's F1 0.9761). The only BERT run completed before this one
-was a 40/16/16-example smoke check (test F1 0, `IMPLEMENTATION_FIXES.md`) that verifies the
-pipeline executes, not that a useful model was trained.
+The run was interrupted twice by out-of-memory crashes on this machine (~7.8GB RAM, frequently
+under 500MB free) — once at step 2191/11247, once at step 7119/11247 — and once by a session
+restart at step 6500/11247. Each time it resumed cleanly from the last step-based checkpoint via
+`ml/training/experiment_identity.py`'s manifest binding, which verifies the resumed run's
+dataset/code/config hashes match the original before allowing it to continue. The final stretch
+ran to completion in an independent PowerShell process (outside the Claude Code session) so it
+would survive the editor closing. All of this is visible in `ml/saved_models/bert_runs/full/`'s
+checkpoint history and `metrics.json`'s recorded hashes; it does not affect the validity of the
+final numbers below, which come from the completed 3-epoch run evaluated once on the held-out
+test set.
+
+**Final test-set results** (n=6,338, from `ml/saved_models/bert_runs/full/metrics.json`):
+
+| Metric | Value |
+|---|---|
+| Accuracy | 0.9978 |
+| Precision | 0.9874 |
+| Recall | 0.9930 |
+| F1 | **0.9902** |
+| Average precision | 0.9995 |
+
+Confusion matrix: TP 705, FN 5, FP 9, TN 5,619. Sanity check: 3/3 phishing and 3/3 legitimate
+probes passed. `meets_spec_targets: true`.
+
+**Comparison to the classical model**: BERT's F1 0.9902 vs. the TF-IDF+Logistic Regression
+model's F1 0.9761 (§3.1) — a real but modest improvement, mainly a reduction in false negatives
+(5 vs. a higher count for the classical model on the same split). Both comfortably clear the
+spec's target and the untrained majority-class/rule-based baselines (F1 0.0, §18.1). Given the
+modest gap and BERT's much higher inference cost, the deployed default remains the classical
+model (`EMAIL_CLASSIFIER_BACKEND=trained`); BERT is available as an alternative backend for
+`app/pipeline/bert_email.py` but is not the shipped default.
+
+Reproducibility: `metrics.json`'s `experiment` block records the dataset SHA-256, code SHA-256 for
+`train_email_bert.py`/`preprocessing.py`/`experiment_identity.py`, the pretrained checkpoint
+revision, seed (42), and package versions (torch 2.14.0, transformers 5.16.1) used for this run.

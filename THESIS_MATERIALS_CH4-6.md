@@ -6,9 +6,8 @@ material, not thesis prose — write Chapters 4–6 in your own academic voice, 
 finding, and file path below is real and citable (no estimates, nothing invented). Where a figure
 came from is noted so you can go verify it yourself or cite the exact artifact.
 
-**Status as of 2026-09-13**: URL and email classical results are final and stable. BERT fine-tuning
-is in progress (currently ~58% through its training steps) — see §5.4 for what to do about that
-section specifically.
+**Status as of 2026-09-15**: URL, email classical, and BERT fine-tuning results are all final and
+stable. See §5.4 for the completed BERT results.
 
 ---
 
@@ -306,7 +305,7 @@ frame this honestly.
 - **Sanity check**: 3 hand-written phishing examples + 3 hand-written legitimate examples, not drawn
   from the dataset at all — 3/3 and 3/3 pass on the current model.
 
-### 4.3 BERT/DistilBERT fine-tuning (in progress — see §5.4)
+### 4.3 BERT/DistilBERT fine-tuning (complete — see §5.4)
 
 - **Model**: `distilbert-base-uncased`, fine-tuned with a weighted cross-entropy loss (same
   class-imbalance rationale as the classical model).
@@ -319,8 +318,9 @@ frame this honestly.
   Chapter 4 or 6 about benchmark representativeness as a methodology lesson).
 - **Resumability**: an experiment-identity manifest binds a training run to its exact dataset hash,
   code hash, hyperparameters, and package versions, refusing to silently resume from a checkpoint
-  that doesn't match — this exists because a real interruption occurred (see §5.4) and needed to be
-  recovered safely rather than silently producing a subtly-wrong resumed model.
+  that doesn't match — this exists because real interruptions occurred (three of them across the
+  full run: two out-of-memory crashes and one session-lifetime interruption, see §5.4) and needed
+  to be recovered safely rather than silently producing a subtly-wrong resumed model.
 
 ---
 
@@ -387,23 +387,55 @@ discrepancy versus the "pure" model numbers above. This is a meaningful methodol
 numbers in §5.1/§5.2 are not just offline research numbers, they are what the deployed system
 actually produces.
 
-### 5.4 BERT — placeholder, fill in once training completes
+### 5.4 BERT — consolidated results
 
-**Do not write final BERT numbers into the thesis yet.** As of 2026-09-13, training is at
-~58% (step ~6,520/11,247 of a 3-epoch run), resumed after two interruptions (an out-of-memory
-crash on this machine's limited RAM, and a session-lifetime interruption unrelated to the model
-itself — both recovered from without losing more than a checkpoint interval of progress, thanks to
-a resumability mechanism built specifically because the first interruption happened for real, not
-hypothetically).
+Training completed 2026-09-15: `distilbert-base-uncased`, 3 full epochs on the same corrected,
+leakage-fixed email split as §5.2 (29,991 train / 6,184 val / 6,338 test).
 
-When it completes, this section needs: test accuracy/precision/recall/F1/average-precision,
-confusion matrix, sanity check pass rate, and — importantly — a direct comparison against the
-classical model's F1 0.9761, since the classical model already meets every spec target on its own.
-The honest framing for Chapter 5/6 either way: BERT fine-tuning was pursued for completeness against
-the spec's stated architecture ("BERT embeddings for transformer model"), not because the classical
-model was inadequate.
+| Metric | Value |
+|---|---|
+| Accuracy | 0.9978 |
+| Precision | 0.9874 |
+| Recall | 0.9930 |
+| F1 | **0.9902** |
+| Average precision (PR-AUC) | 0.9995 |
+| Confusion matrix | TN=5619, FP=9, FN=5, TP=705 |
 
-Source once complete: `ml/saved_models/bert_runs/full/metrics.json`.
+**Meets every spec target.** Sanity check: 3/3 phishing, 3/3 legitimate. Baseline (always predict
+"legitimate"): accuracy 0.888, F1 0.0 — same baseline as §5.2, since it's the same split.
+
+Source: `ml/saved_models/bert_runs/full/metrics.json`, which also records the exact dataset
+SHA-256, code SHA-256 for the training/preprocessing/identity-binding scripts, the pretrained
+checkpoint revision, seed (42), and package versions — everything needed to reproduce or audit
+this specific run.
+
+**Comparison against the classical model**: BERT reaches F1 0.9902 versus the classical TF-IDF +
+Logistic Regression model's F1 0.9761 (§5.2) — a real improvement, but a modest one (0.0141), and
+smaller than the gap you might expect from a full transformer versus a linear bag-of-words model.
+Both comfortably clear the spec's F1≥0.90 target. The honest framing for Chapter 5/6: BERT
+fine-tuning was pursued for completeness against the spec's stated architecture ("BERT embeddings
+for transformer model"), not because the classical model was inadequate — the classical model
+already met every target on its own (§5.2), and the deployed system's default backend remains the
+classical model, with BERT available as a selectable alternative. This is a legitimate and useful
+finding for Chapter 6: it demonstrates that architectural sophistication produced a measurable but
+small return over a much cheaper linear model on this task, which is itself worth discussing when
+weighing computational cost against marginal accuracy gain for deployment decisions.
+
+**Training process, honestly reported for Chapter 4/6 methodology discussion**: the full run was
+interrupted three times over its course — two out-of-memory crashes (at step 2,191/11,247 and step
+7,119/11,247) caused by this machine's limited RAM (~7.8GB, frequently under 500MB free), and one
+session-lifetime interruption unrelated to the model (a development-session restart) at step
+6,500/11,247. Each time, training resumed from the last step-based checkpoint (checkpoints saved
+every 500 steps specifically after the first crash, replacing an earlier epoch-based checkpoint
+strategy that would have lost far more progress) after the experiment-identity manifest verified
+the resumed run's dataset hash, code hash, and hyperparameters matched the original run exactly.
+The final segment ran to completion in an independent process outside the development session so
+it would not be affected by a fourth interruption. None of this affects the validity of the final
+numbers above — they come from one continuous, hash-verified training lineage evaluated once on a
+held-out test set — but it is a legitimate and interesting operational finding for a thesis
+building ML infrastructure on resource-constrained hardware, and is worth a paragraph in Chapter 4
+(engineering the resumability mechanism) and/or Chapter 6 (practical constraints of the deployment
+environment).
 
 ---
 

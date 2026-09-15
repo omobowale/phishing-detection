@@ -24,7 +24,20 @@ def main() -> None:
         print(f"No log found at {LOG_PATH} -- has the run ever been started?")
         return
 
-    tail = LOG_PATH.read_text(encoding="utf-8", errors="replace")[-4000:]
+    raw = LOG_PATH.read_bytes()[-8000:]
+    # PowerShell's `*>>` redirect writes UTF-16LE; UTF-8 decoding of that
+    # mangles every line into space-separated characters and silently breaks
+    # the progress regex below. An arbitrary byte-offset slice can also land
+    # mid-codeunit, so try both alignments before falling back to UTF-8.
+    tail = None
+    for offset in (0, 1):
+        try:
+            tail = raw[offset:].decode("utf-16-le")
+            break
+        except UnicodeDecodeError:
+            continue
+    if tail is None:
+        tail = raw.decode("utf-8", errors="replace")
     matches = list(_STEP_RE.finditer(tail))
     if not matches:
         print("Log exists but no progress line found yet (still loading model/data, or just crashed).")
